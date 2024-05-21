@@ -127,209 +127,132 @@
                   <xsl:if test="$chemicalNameCount &gt; 0">
                     <th id="c2">
                       <span class="title">Chemical name</span>
-                      <div class="remove hideable">
-                        <button>X</button>
-                      </div>
                     </th>
                   </xsl:if>
                   <xsl:if test="$ionChargeCount &gt; 0">
                     <th id="c3">
                       <span class="title">Ion charge</span>
-                      <div class="remove hideable">
-                        <button>X</button>
-                      </div>
                     </th>
                   </xsl:if>
                   <xsl:if test="$stoichiometricFormulaCount &gt; 0">
                     <th id="c4">
                       <span class="title">Stoichiometric formula</span>
-                      <div class="remove hideable">
-                        <button>X</button>
-                      </div>
                     </th>
                   </xsl:if>
                   <xsl:if test="$ordinaryStructuralFormulaCount &gt; 0">
                     <th id="c5">
                       <span class="title">Ordinary structural formula</span>
-                      <div class="remove hideable">
-                        <button>X</button>
-                      </div>
+
                     </th>
                   </xsl:if>
                   <xsl:if test="$wavelengthCount &gt; 0">
                     <th id="c6" data-unit="{$wavelengthUnit}">
                       <span class="title">Wavelength (<xsl:value-of select="$wavelengthUnit" />)</span>
-                      <div class="remove hideable">
-                        <button>X</button>
-                      </div>
                     </th>
                   </xsl:if>
                   <xsl:if test="$wavelengthRefCount &gt; 0">
                     <th id="c7">
                       <span class="title">Wavelength reference</span>
-                      <div class="remove hideable">
-                        <button>X</button>
-                      </div>
                     </th>
                   </xsl:if>
                   <xsl:if test="$radiativeTransitionRefCount &gt; 0">
                     <th id="c8">
                       <span class="title">Transition reference</span>
-                      <div class="remove hideable">
-                        <button>X</button>
-                      </div>
                     </th>
                   </xsl:if>
                   <xsl:if test="$wavenumberCount &gt; 0">
                     <th id="c9" data-unit="{$wavenumberUnit}">
                       <span class="title">Wavenumber</span>
-                      <div class="remove hideable">
-                        <button>X</button>
-                      </div>
                     </th>
                   </xsl:if>
                   <xsl:if test="$wavenumberRefCount &gt; 0">
                     <th id="c10">
                       <span class="title">Wavenumber reference</span>
-                      <div class="remove hideable">
-                        <button>X</button>
-                      </div>
                     </th>
                   </xsl:if>
                   <xsl:if test="$energyCount &gt; 0">
                     <th id="c11" data-unit="{$transitionEnergyUnit}">
                       <span class="title">Energy</span>
-                      <div class="remove hideable">
-                        <button>X</button>
-                      </div>
                     </th>
                   </xsl:if>
                   <xsl:if test="$energyRefCount &gt; 0">
                     <th id="c12">
                       <span class="title">Energy reference</span>
-                      <div class="remove hideable">
-                        <button>X</button>
-                      </div>
                     </th>
                   </xsl:if>
                   <xsl:if test="$frequencyCount &gt; 0">
                     <th id="c13" data-unit="{$frequencyUnit}">
                       <span class="title">Frequency</span>
-                      <div class="remove hideable">
-                        <button>X</button>
-                      </div>
                     </th>
                   </xsl:if>
                   <xsl:if test="$frequencyRefCount &gt; 0">
                     <th id="c14">
                       <span class="title">Frequency reference</span>
-                      <div class="remove hideable">
-                        <button>X</button>
-                      </div>
                     </th>
                   </xsl:if>                
                   <xsl:if test="$transitionProbabilityCount &gt; 0">
                     <th id="c15">
                       <span class="title">A</span>
-                      <div class="remove hideable">
-                        <button>X</button>
-                      </div>
                     </th>
                   </xsl:if>
                   <xsl:if test="$oscillatorStrengthCount &gt; 0">
                     <th id="c16">
                       <span class="title">Oscillator Strength</span>
-                      <div class="remove hideable">
-                        <button>X</button>
-                      </div>
                     </th>
                   </xsl:if>
                   <xsl:if test="$weightedOscillatorStrengthCount &gt; 0">
                     <th id="c17">
                       <span class="title">Weighted Oscillator Strength</span>
-                      <div class="remove hideable">
-                        <button>X</button>
-                      </div>
                     </th>
                   </xsl:if>
                   <xsl:if test="$stateEnergyCount &gt; 0">
                     <th id="c18" data-unit="{$stateEnergyUnit}">
                       <span class="title">Lower energy(<xsl:value-of select="$stateEnergyUnit"/>)</span>
-                      <div class="remove hideable">
-                        <button>X</button>
-                      </div>
                     </th>
                   </xsl:if>
                   <xsl:if test="$totalStatisticalWeightCount &gt; 0">
                     <th id="c19">
                       <span class="title">Lower total statistical weight</span>
-                      <div class="remove hideable">
-                        <button>X</button>
-                      </div>
                     </th>
                   </xsl:if>
                   <xsl:if test="$nuclearStatisticalWeightCount &gt; 0">
                     <th id="c20">
                       <span class="title">Lower nuclear statistical weight</span>
-                      <div class="remove hideable">
-                        <button>X</button>
-                      </div>
                     </th>
                   </xsl:if>
                   <xsl:if test="$parityCount &gt; 0">
                     <th id="c21">
                       <span class="title">Lower parity</span>
-                      <div class="remove hideable">
-                        <button>X</button>
-                      </div>
                     </th>
                   </xsl:if>
                   <xsl:if test="$caseCount &gt; 0">
                     <th id="c22">
                       <span class="title">Lower QNs</span>
-                      <div class="remove hideable">
-                        <button>X</button>
-                      </div>
                     </th>
                   </xsl:if>
                   <xsl:if test="$stateEnergyCount &gt; 0">
                     <th id="c23" data-unit="{$stateEnergyUnit}">
                       <span class="title">Upper energy(<xsl:value-of select="$stateEnergyUnit"/>)</span>
-                      <div class="remove hideable">
-                        <button>X</button>
-                      </div>
                     </th>
                   </xsl:if>
                   <xsl:if test="$totalStatisticalWeightCount &gt; 0">
                     <th id="c24">
                       <span class="title">Upper total statistical weight</span>
-                      <div class="remove hideable">
-                        <button>X</button>
-                      </div>
                     </th>
                   </xsl:if>
                   <xsl:if test="$nuclearStatisticalWeightCount &gt; 0">
                     <th id="c25">
                       <span class="title">Upper nuclear statistical weight</span>
-                      <div class="remove hideable">
-                        <button>X</button>
-                      </div>
                     </th>
                   </xsl:if>
                   <xsl:if test="$parityCount &gt; 0">
                     <th id="c26">
                       <span class="title">Upper parity</span>
-                      <div class="remove hideable">
-                        <button>X</button>
-                      </div>
                     </th>
                   </xsl:if>
                   <xsl:if test="$caseCount &gt; 0">
                     <th id="c27">
                       <span class="title">Upper QNs</span>
-                      <div class="remove hideable">
-                        <button>X</button>
-                      </div>
                     </th>
                   </xsl:if>
                 </tr>
