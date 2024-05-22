@@ -1,7 +1,6 @@
 import pandas as pd
 import sys
 import species
-
 import vamdcQuery
 
 def getLines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = None):
@@ -18,7 +17,6 @@ def getLines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = N
 
     # fitler the list of species by selecting only the node from the selectedNodeList
     filtered_species_df = species_dataframe[species_dataframe["ivoIdentifier"].isin(selectedNodeList)]
-        
 
     # defining an empty list, which will be used to store all the VamdcQuery instances
     listOfAllQueries = []
@@ -32,9 +30,31 @@ def getLines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = N
         # for each row of the data-frame we create a VamdcQuery instance
         vamdcQuery.VamdcQuery(nodeEndpoint,lambdaMin,lambdaMax, InChIKey, speciesType, listOfAllQueries)
 
-    print(len(listOfAllQueries))
+    # At this point the list listOfAllQueries contains all the query that can be run without truncation
+    # For each query in the list, we get the data, and convert the data into a Pandas dataframe
+    for currentQuery in listOfAllQueries:
+        # get the data
+        currentQuery.getXSAMSData()
+        # convert the data 
+        currentQuery.convertToDataFrame()
+    
+    # now we build two list, one with all the molecular data-frames, the other one with atomic data-frames
+    list_molecular_df = []
+    list_atomic_df = []
 
+    # and we populate those two list by iterating over the queries that have been processed to generate its data-frame
+    for currentQuery in listOfAllQueries:
+        if currentQuery.speciesType == "atom":
+            list_atomic_df.append(currentQuery.lines_df)
+        if currentQuery.speciesType == "molecule":
+            list_molecular_df.append(currentQuery.lines_df)
+    
+    # we concatenate the list into ad-hoc data-frames
+    atomic_df = pd.concat(list_atomic_df)
+    molecular_df = pd.concat(list_molecular_df)
 
+    # we return the two data-frames
+    return atomic_df, molecular_df
 
 def main():
 
@@ -52,7 +72,7 @@ def main():
     lambdaMin = 1
     lambdaMax = 50
 
- #   getLines(lambdaMin, lambdaMax, nodes_dataframe=filtered_df, species_dataframe=species_df)
+    getLines(lambdaMin, lambdaMax, nodes_dataframe=filtered_df, species_dataframe=species_df)
 
 if __name__=='__main__':
     main()

@@ -45,8 +45,8 @@ class VamdcQuery:
                 newFirstLambdaMax = 0.5*(self.lambdaMax + self.lambdaMin)
                 newSecondLambdaMin = newFirstLambdaMax
                 newSecondLambdaMax = self.lambdaMax
-                VamdcQuery(self.nodeEndpoint, newFirstLambdaMin, newFirstLambdaMax, self.InchiKey, totalListOfQueries)
-                VamdcQuery(self.nodeEndpoint, newSecondLambdaMin, newSecondLambdaMax, self.InchiKey, totalListOfQueries)
+                VamdcQuery(self.nodeEndpoint, newFirstLambdaMin, newFirstLambdaMax, self.InchiKey, self.speciesType, totalListOfQueries)
+                VamdcQuery(self.nodeEndpoint, newSecondLambdaMin, newSecondLambdaMax, self.InchiKey, self.speciesType, totalListOfQueries)
 
         except TimeoutError as e:
             print("TimeOut error")
@@ -82,8 +82,6 @@ class VamdcQuery:
     def convertToDataFrame(self):
        self.lines_df = None
 
-       #mock for test 
-       self.queryToken = "topbase:1156ef28-48a4-439f-9941-523cec6271e7:get"
        # if the data are there (we chek the presence with the Query Token)
        if self.queryToken is not None:
           #xsltfile = ET.XSLT(ET.parse("/home/zwolf/Work/PythonDev/pyVAMDC/xsl/atomicxsams2html.xsl"))
@@ -132,21 +130,19 @@ class VamdcQuery:
           # adding to the data-frame the information about the queryToken
           self.lines_df["queryToken"]= self.queryToken
 
-          print(self.lines_df.columns)
 
 
 
 
 
+#lambdaMin = 1
+#lambdaMax = 50
+#InchiKey =  "DOBFQOMOKMYPDT-UHFFFAOYSA-N"
+#nodeEndpoint = "http://topbase.obspm.fr/12.07/vamdc/tap/"
 
-lambdaMin = 1
-lambdaMax = 50
-InchiKey =  "DOBFQOMOKMYPDT-UHFFFAOYSA-N"
-nodeEndpoint = "http://topbase.obspm.fr/12.07/vamdc/tap/"
-
-listOfAllQueries = []
-VamdcQuery(nodeEndpoint,lambdaMin,lambdaMax, InchiKey,"atom", listOfAllQueries)
-print(len(listOfAllQueries))
-vamdcQueryTest = listOfAllQueries[0]
+#listOfAllQueries = []
+#VamdcQuery(nodeEndpoint,lambdaMin,lambdaMax, InchiKey,"atom", listOfAllQueries)
+#print(len(listOfAllQueries))
+#vamdcQueryTest = listOfAllQueries[0]
 #vamdcQueryTest.getXSAMSData()
-vamdcQueryTest.convertToDataFrame()
+#vamdcQueryTest.convertToDataFrame()
