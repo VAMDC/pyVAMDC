@@ -59,6 +59,7 @@ def getSpeciesWithSearchCriteria(text_search = None, stoichiometric_formula = No
     urlSuffix = (urlSuffix+"charge_min="+str(charge_min)+"&") if charge_min is not None else urlSuffix
 
     fullUrl = urlSpeciesEndpoint + urlSuffix
+
     species_df , node_df = _getChemicalInfoFromEnpoint(fullUrl)
     
     return species_df, node_df
