@@ -49,8 +49,8 @@ def getLines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = N
             list_molecular_df.append(currentQuery.lines_df)
     
     # we concatenate the list into ad-hoc data-frames
-    atomic_df = pd.concat(list_atomic_df)
-    molecular_df = pd.concat(list_molecular_df)
+    atomic_df = pd.concat(list_atomic_df, ignore_index=True)
+    molecular_df = pd.concat(list_molecular_df, ignore_index=True)
 
     # we return the two data-frames
     return atomic_df, molecular_df
