@@ -1,5 +1,4 @@
 import pandas as pd
-import sys
 import species
 import vamdcQuery
 
@@ -61,7 +60,7 @@ def main():
     nodes_df = species.getNodeHavingSpecies()
     # We just select the topbase node for testing the library
     row_indices = [27]
-    filtered_df = nodes_df.iloc[row_indices]
+    filtered_nodes_df = nodes_df.iloc[row_indices]
 
     # we get a list of species built using the search API
     #species_df , _ = species.getSpeciesWithSearchCriteria(name="Fe", charge_min=11, charge_max=11)
@@ -72,7 +71,7 @@ def main():
     lambdaMin = 1
     lambdaMax = 50
 
-    getLines(lambdaMin, lambdaMax, nodes_dataframe=filtered_df, species_dataframe=species_df)
+    atomicLines, molecularLines = getLines(lambdaMin, lambdaMax, nodes_dataframe=filtered_nodes_df, species_dataframe=species_df)
 
 if __name__=='__main__':
     main()
