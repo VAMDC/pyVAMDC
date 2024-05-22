@@ -1,21 +1,22 @@
 import requests
 import lxml.etree as ET
-import codecs
 import pandas as pd
+import os
 from pathlib import Path
 
 class VamdcQuery:
 
-    def __init__(self, nodeEndpoint, lambdaMin, lambdaMax, InchiKey, totalListOfQueries):
-        self.nodeEnpoint = nodeEndpoint
+    def __init__(self, nodeEndpoint, lambdaMin, lambdaMax, InchiKey, speciesType, totalListOfQueries):
+        self.nodeEndpoint = nodeEndpoint
         self.lambdaMin = lambdaMin
         self.lambdaMax =lambdaMax
         self.InchiKey = InchiKey
+        self.speciesType = speciesType
         self.hasData = False
         self.truncated = None
 
         query = "select * where (RadTransWavelength >= {0} AND RadTransWavelength <= {1}) AND ((InchiKey = '{2}'))".format(lambdaMin, lambdaMax, InchiKey)
-        self.vamdcCall = nodeEnpoint + "sync?LANG=VSS2&REQUEST=doQuery&FORMAT=XSAMS&QUERY="+query
+        self.vamdcCall = self.nodeEndpoint + "sync?LANG=VSS2&REQUEST=doQuery&FORMAT=XSAMS&QUERY="+query
 
         # to be changed in the final version of the lib. This option desactivate the Query Store notifications
         headers = {'User-Agent':'VAMDC Query store'}
@@ -44,8 +45,8 @@ class VamdcQuery:
                 newFirstLambdaMax = 0.5*(self.lambdaMax + self.lambdaMin)
                 newSecondLambdaMin = newFirstLambdaMax
                 newSecondLambdaMax = self.lambdaMax
-                VamdcQuery(self.nodeEnpoint, newFirstLambdaMin, newFirstLambdaMax, self.InchiKey, totalListOfQueries)
-                VamdcQuery(self.nodeEnpoint, newSecondLambdaMin, newSecondLambdaMax, self.InchiKey, totalListOfQueries)
+                VamdcQuery(self.nodeEndpoint, newFirstLambdaMin, newFirstLambdaMax, self.InchiKey, totalListOfQueries)
+                VamdcQuery(self.nodeEndpoint, newSecondLambdaMin, newSecondLambdaMax, self.InchiKey, totalListOfQueries)
 
         except TimeoutError as e:
             print("TimeOut error")
@@ -79,8 +80,10 @@ class VamdcQuery:
        
 
     def convertToDataFrame(self):
+       self.lines_df = None
+
        #mock for test 
-       self.queryToken = "topbase:6a3cdda5-5f63-44cc-aa77-bfb8ef6d5ba9:get"
+       self.queryToken = "topbase:1156ef28-48a4-439f-9941-523cec6271e7:get"
        # if the data are there (we chek the presence with the Query Token)
        if self.queryToken is not None:
           #xsltfile = ET.XSLT(ET.parse("/home/zwolf/Work/PythonDev/pyVAMDC/xsl/atomicxsams2html.xsl"))
@@ -95,16 +98,43 @@ class VamdcQuery:
          
           xml_doc = ET.parse(resultFileName)
 
-          # Load the XSL file
-          xslt_doc = ET.parse("/home/zwolf/Work/PythonDev/pyVAMDC/xsl/atomicxsams2html.xsl")
+          # Get the full path of the current script
+          script_path = Path(__file__).resolve()
+
+          # Get the parent directory of the script
+          parent_dir = script_path.parent.parent
+
+          # Load the XSL file, according to the type of transormation needed 
+          if self.speciesType == "atom":
+            xslt_doc = ET.parse(str(parent_dir)+"/xsl/atomicxsams2html.xsl")
+            print("atom")
+
+          if self.speciesType == "molecule":
+            xslt_doc = ET.parse(str(parent_dir)+"/xsl/molecularxsams2html.xsl")
+
           transform = ET.XSLT(xslt_doc)
 
           # Perform the transformation
           result = transform(xml_doc)
 
-          # Save the transformed output to an XLS file
-          with open("output.html", "wb") as output_file:
+          # Save the transformed output to an HTML temporary file
+          with open(self.queryToken+".html", "wb") as output_file:
            output_file.write(result)
+          
+          # reading the html file to produce a data-frame
+          tableHTML = pd.read_html(self.queryToken+".html")
+          
+          # removing the temporart HTML file
+          os.remove(self.queryToken+".html")
+          
+          self.lines_df = tableHTML[1]
+
+          # adding to the data-frame the information about the queryToken
+          self.lines_df["queryToken"]= self.queryToken
+
+          print(self.lines_df.columns)
+
+
 
 
 
@@ -112,10 +142,10 @@ class VamdcQuery:
 lambdaMin = 1
 lambdaMax = 50
 InchiKey =  "DOBFQOMOKMYPDT-UHFFFAOYSA-N"
-nodeEnpoint = "http://topbase.obspm.fr/12.07/vamdc/tap/"
+nodeEndpoint = "http://topbase.obspm.fr/12.07/vamdc/tap/"
 
 listOfAllQueries = []
-VamdcQuery(nodeEnpoint,lambdaMin,lambdaMax, InchiKey, listOfAllQueries)
+VamdcQuery(nodeEndpoint,lambdaMin,lambdaMax, InchiKey,"atom", listOfAllQueries)
 print(len(listOfAllQueries))
 vamdcQueryTest = listOfAllQueries[0]
 #vamdcQueryTest.getXSAMSData()
