@@ -29,6 +29,8 @@ def getLines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = N
         # for each row of the data-frame we create a VamdcQuery instance
         vamdcQuery.VamdcQuery(nodeEndpoint,lambdaMin,lambdaMax, InChIKey, speciesType, listOfAllQueries)
 
+    print("total amount of sub-queries to be submitted "+str(len(listOfAllQueries)))
+
     # At this point the list listOfAllQueries contains all the query that can be run without truncation
     # For each query in the list, we get the data, and convert the data into a Pandas dataframe
     for currentQuery in listOfAllQueries:
@@ -48,9 +50,19 @@ def getLines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = N
         if currentQuery.speciesType == "molecule":
             list_molecular_df.append(currentQuery.lines_df)
     
-    # we concatenate the list into ad-hoc data-frames
-    atomic_df = pd.concat(list_atomic_df, ignore_index=True)
-    molecular_df = pd.concat(list_molecular_df, ignore_index=True)
+    # we concatenate the lists, if these are not empty, into ad-hoc data-frames
+    atomic_df = None
+    molecular_df = None
+    
+    if list_atomic_df:    
+        atomic_df = pd.concat(list_atomic_df, ignore_index=True)
+    else:
+        print("no atomic data to fetch")
+
+    if list_molecular_df:
+        molecular_df = pd.concat(list_molecular_df, ignore_index=True)
+    else:
+        print("no molecular data to fetch")
 
     # we return the two data-frames
     return atomic_df, molecular_df
@@ -58,20 +70,33 @@ def getLines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = N
 def main():
 
     nodes_df = species.getNodeHavingSpecies()
-    # We just select the topbase node for testing the library
-    row_indices = [27]
+  
+    # We just select the CDMS (number 8) and topbase (number 27) nodes for testing the library
+    row_indices = [8,27]
+
     filtered_nodes_df = nodes_df.iloc[row_indices]
 
     # we get a list of species built using the search API
     #species_df , _ = species.getSpeciesWithSearchCriteria(name="Fe", charge_min=11, charge_max=11)
-    species_df , _ = species.getSpeciesWithSearchCriteria(text_search="DOBFQOMOKMYPDT-UHFFFAOYSA-N")
+
+    #this species is Carbon
+    species_df , _ = species.getSpeciesWithSearchCriteria(text_search="OKTJSMMVPCPJKN-UHFFFAOYSA-N")
+
+    #this species is Carbon-Monoxide
+    #species_df , _ = species.getSpeciesWithSearchCriteria(text_search="UGFAIRIUMAVXCW-UHFFFAOYSA-N")
+    
+    
 
     print(species_df)
+    print(filtered_nodes_df)
 
     lambdaMin = 1
-    lambdaMax = 50
+    lambdaMax = 100000000
 
     atomicLines, molecularLines = getLines(lambdaMin, lambdaMax, nodes_dataframe=filtered_nodes_df, species_dataframe=species_df)
+
+    atomicLines.to_html("./atom.html")
+    molecularLines.to_html("./molecule.html")
 
 if __name__=='__main__':
     main()

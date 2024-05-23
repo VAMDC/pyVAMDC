@@ -105,7 +105,6 @@ class VamdcQuery:
           # Load the XSL file, according to the type of transormation needed 
           if self.speciesType == "atom":
             xslt_doc = ET.parse(str(parent_dir)+"/xsl/atomicxsams2html.xsl")
-            print("atom")
 
           if self.speciesType == "molecule":
             xslt_doc = ET.parse(str(parent_dir)+"/xsl/molecularxsams2html.xsl")
@@ -129,20 +128,3 @@ class VamdcQuery:
 
           # adding to the data-frame the information about the queryToken
           self.lines_df["queryToken"]= self.queryToken
-
-
-
-
-
-
-#lambdaMin = 1
-#lambdaMax = 50
-#InchiKey =  "DOBFQOMOKMYPDT-UHFFFAOYSA-N"
-#nodeEndpoint = "http://topbase.obspm.fr/12.07/vamdc/tap/"
-
-#listOfAllQueries = []
-#VamdcQuery(nodeEndpoint,lambdaMin,lambdaMax, InchiKey,"atom", listOfAllQueries)
-#print(len(listOfAllQueries))
-#vamdcQueryTest = listOfAllQueries[0]
-#vamdcQueryTest.getXSAMSData()
-#vamdcQueryTest.convertToDataFrame()
