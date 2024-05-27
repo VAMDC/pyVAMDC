@@ -1,6 +1,6 @@
 import pandas as pd
-import species
-import vamdcQuery
+import pyVAMDC.spectral.species as species
+import pyVAMDC.spectral.vamdcQuery as vamdcQuery
 
 def getLines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = None):
     # if the provided species_dataframe is not provided, we build it by taking all the species
@@ -67,37 +67,5 @@ def getLines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = N
     # we return the two data-frames
     return atomic_df, molecular_df
 
-def main():
 
-    nodes_df = species.getNodeHavingSpecies()
-  
-    # We just select the CDMS (number 8) and topbase (number 27) nodes for testing the library
-    row_indices = [8,27]
-
-    filtered_nodes_df = nodes_df.iloc[row_indices]
-
-    # we get a list of species built using the search API
-    #species_df , _ = species.getSpeciesWithSearchCriteria(name="Fe", charge_min=11, charge_max=11)
-
-    #this species is Carbon
-    species_df , _ = species.getSpeciesWithSearchCriteria(text_search="OKTJSMMVPCPJKN-UHFFFAOYSA-N")
-
-    #this species is Carbon-Monoxide
-    #species_df , _ = species.getSpeciesWithSearchCriteria(text_search="UGFAIRIUMAVXCW-UHFFFAOYSA-N")
-    
-    
-
-    print(species_df)
-    print(filtered_nodes_df)
-
-    lambdaMin = 1
-    lambdaMax = 100000000
-
-    atomicLines, molecularLines = getLines(lambdaMin, lambdaMax, nodes_dataframe=filtered_nodes_df, species_dataframe=species_df)
-
-    atomicLines.to_html("./atom.html")
-    molecularLines.to_html("./molecule.html")
-
-if __name__=='__main__':
-    main()
 

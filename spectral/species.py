@@ -142,20 +142,3 @@ def _getChemicalInfoFromEnpoint(specificSpeciesEndpoint):
     AllSpeciesDF = AllSpeciesDF.drop('lastSeenDateTime', axis=1)
 
     return AllSpeciesDF, df_nodes
-
-
-def main():
-
-    getAllSpeciesInExcelFile("/home/zwolf")
-    df_nodes = getNodeHavingSpecies()
-    
-
- #   row_indices = [0, 2, 4]
-    ## Filtering the DataFrame
-#    filtered_df = df_nodes.iloc[row_indices]
-
-#    print(filtered_df["ivoIdentifier"].to_list)
-
-
-if __name__=='__main__':
-    main()
