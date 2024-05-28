@@ -56,6 +56,7 @@ def getLines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = N
     
     if list_atomic_df:    
         atomic_df = pd.concat(list_atomic_df, ignore_index=True)
+        _consolidateAtomicDF(atomic_df)
     else:
         print("no atomic data to fetch")
 
@@ -68,4 +69,59 @@ def getLines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = N
     return atomic_df, molecular_df
 
 
+def _consolidateAtomicDF(atomicDF):
+  for i, row in atomicDF.iterrows():
+    if pd.isna(row["Frequency (MHz)"]):
+        atomicDF.at[i, "Frequency (MHz)"] = wavelength_to_frequency(row["Wavelength (A)"])
+    elif pd.isna(row["Wavelength (A)"]):
+        atomicDF.at[i, "Wavelength (A)"] = frequency_to_wavelength(row["Frequency (MHz)"])
+
+
+def frequency_to_wavelength(frequency_mhz):
+    """
+    Converts the frequency of an electromagnetic wave from MHz to wavelength in Angstroms (Å).
+
+    Args:
+        frequency_mhz (float): The frequency of the electromagnetic wave in MHz.
+
+    Returns:
+        float: The wavelength of the electromagnetic wave in Angstroms.
+    """
+    # Speed of light in vacuum (m/s)
+    c = 299792458
+
+    # Convert frequency from MHz to Hz
+    frequency_hz = frequency_mhz * 1e6
+
+    # Calculate wavelength in meters
+    wavelength_meter = c / frequency_hz
+
+    # Convert wavelength from meters to Angstroms
+    wavelength_angstrom = wavelength_meter / 1e-10
+
+    return wavelength_angstrom
+
+def wavelength_to_frequency(wavelength_angstrom):
+    """
+    Converts the wavelength of an electromagnetic wave from Angstroms (Å) to frequency in MHz.
+
+    Args:
+        wavelength_angstrom (float): The wavelength of the electromagnetic wave in Angstroms.
+
+    Returns:
+        float: The frequency of the electromagnetic wave in MHz.
+    """
+    # Speed of light in vacuum (m/s)
+    c = 299792458
+
+    # Convert wavelength from Angstroms to meters
+    wavelength_meter = wavelength_angstrom * 1e-10
+
+    # Calculate frequency in Hz
+    frequency_hz = c / wavelength_meter
+
+    # Convert frequency from Hz to MHz
+    frequency_mhz = frequency_hz / 1e6
+
+    return frequency_mhz
 
