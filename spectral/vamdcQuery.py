@@ -28,7 +28,7 @@ class VamdcQuery:
                 self.hasData = True
                
                 queryTruncation = response.headers.get("VAMDC-TRUNCATED")
-                if queryTruncation is None or queryTruncation == '100':
+                if queryTruncation is None or queryTruncation == '100' or  queryTruncation == "None":
                     self.truncated = False
                 else:
                    self.truncated = True
