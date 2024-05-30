@@ -70,7 +70,7 @@ class VamdcQuery:
            self.XSAMSFileName = "./XSAMS/"+self.queryToken+".xsams"
         else:
            self.localUUID = str(uuid.uuid4())
-           self.XSAMSFileName = "./XSAMS/"+self.localUUID + self.nodeEndpoint +".xsams"
+           self.XSAMSFileName = "./XSAMS/"+self.localUUID+".xsams"
 
         output_file = Path(self.XSAMSFileName)
         output_file.parent.mkdir(exist_ok=True, parents=True)
@@ -134,4 +134,4 @@ class VamdcQuery:
           self.lines_df = tableHTML[1]
 
           # adding to the data-frame the information about the queryToken
-          self.lines_df["queryToken"]= self.queryToken if self.queryToken is not None else "None"
+          self.lines_df["queryToken"]= self.queryToken if self.queryToken is not None else (self.localUUID+self.nodeEndpoint)
