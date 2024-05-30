@@ -3,7 +3,7 @@ import lxml.etree as ET
 import pandas as pd
 import os
 from pathlib import Path
-from datetime import datetime
+import uuid
 
 class VamdcQuery:
 
@@ -16,6 +16,7 @@ class VamdcQuery:
         self.hasData = False
         self.truncated = None
         self.XSAMSFileName = None
+        self.localUUID = None
 
         query = "select * where (RadTransWavelength >= {0} AND RadTransWavelength <= {1}) AND ((InchiKey = '{2}'))".format(lambdaMin, lambdaMax, InchiKey)
         self.vamdcCall = self.nodeEndpoint + "sync?LANG=VSS2&REQUEST=doQuery&FORMAT=XSAMS&QUERY="+query
@@ -68,9 +69,8 @@ class VamdcQuery:
         if self.queryToken:
            self.XSAMSFileName = "./XSAMS/"+self.queryToken+".xsams"
         else:
-           now = datetime.now()
-           date_time = now.strftime("%Y%m%d_%H_%M")
-           self.XSAMSFileName = "./XSAMS/"+date_time+ self.nodeEndpoint +".xsams"
+           self.localUUID = str(uuid.uuid4())
+           self.XSAMSFileName = "./XSAMS/"+self.localUUID + self.nodeEndpoint +".xsams"
 
         output_file = Path(self.XSAMSFileName)
         output_file.parent.mkdir(exist_ok=True, parents=True)
@@ -120,14 +120,16 @@ class VamdcQuery:
           result = transform(xml_doc)
 
           # Save the transformed output to an HTML temporary file
-          with open(self.queryToken+".html", "wb") as output_file:
+
+          tempHTMLFileName = self.queryToken+".html" if self.queryToken is not None else self.localUUID+".html"
+          with open(tempHTMLFileName, "wb") as output_file:
            output_file.write(result)
           
           # reading the html file to produce a data-frame
-          tableHTML = pd.read_html(self.queryToken+".html")
+          tableHTML = pd.read_html(tempHTMLFileName)
           
           # removing the temporart HTML file
-          os.remove(self.queryToken+".html")
+          os.remove(tempHTMLFileName)
           
           self.lines_df = tableHTML[1]
 
