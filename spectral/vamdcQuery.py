@@ -60,6 +60,7 @@ class VamdcQuery:
       # we get the data only if there is data and the request is not truncated
       if self.hasData is True and self.truncated is False:
         queryResult = requests.get(self.vamdcCall, headers=headers)
+        
         self.queryToken = queryResult.headers.get('VAMDC-REQUEST-TOKEN')
         filename = "./XSAMS/"+self.queryToken+".xsams"
        
@@ -127,4 +128,4 @@ class VamdcQuery:
           self.lines_df = tableHTML[1]
 
           # adding to the data-frame the information about the queryToken
-          self.lines_df["queryToken"]= self.queryToken
+          self.lines_df["queryToken"]= self.queryToken if self.queryToken is not None else "None"

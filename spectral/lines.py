@@ -71,9 +71,9 @@ def getLines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = N
 
 def _consolidateAtomicDF(atomicDF):
   for i, row in atomicDF.iterrows():
-    if pd.isna(row["Frequency (MHz)"]):
+    if "Frequency (MHz)" in atomicDF.columns and "Wavelength (A)" in atomicDF.columns and pd.isna(row["Frequency (MHz)"]):
         atomicDF.at[i, "Frequency (MHz)"] = wavelength_to_frequency(row["Wavelength (A)"])
-    elif pd.isna(row["Wavelength (A)"]):
+    elif "Frequency (MHz)" in atomicDF.columns and "Wavelength (A)" in atomicDF.columns and pd.isna(row["Wavelength (A)"]):
         atomicDF.at[i, "Wavelength (A)"] = frequency_to_wavelength(row["Frequency (MHz)"])
 
 
