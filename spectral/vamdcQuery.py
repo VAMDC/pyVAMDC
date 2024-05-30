@@ -3,6 +3,7 @@ import lxml.etree as ET
 import pandas as pd
 import os
 from pathlib import Path
+from datetime import datetime
 
 class VamdcQuery:
 
@@ -14,6 +15,7 @@ class VamdcQuery:
         self.speciesType = speciesType
         self.hasData = False
         self.truncated = None
+        self.XSAMSFileName = None
 
         query = "select * where (RadTransWavelength >= {0} AND RadTransWavelength <= {1}) AND ((InchiKey = '{2}'))".format(lambdaMin, lambdaMax, InchiKey)
         self.vamdcCall = self.nodeEndpoint + "sync?LANG=VSS2&REQUEST=doQuery&FORMAT=XSAMS&QUERY="+query
@@ -62,12 +64,15 @@ class VamdcQuery:
         queryResult = requests.get(self.vamdcCall, headers=headers)
         
         self.queryToken = queryResult.headers.get('VAMDC-REQUEST-TOKEN')
-        filename = "./XSAMS/"+self.queryToken+".xsams"
-       
-        print("Creating file "+filename)
-       
+        
+        if self.queryToken:
+           self.XSAMSFileName = "./XSAMS/"+self.queryToken+".xsams"
+        else:
+           now = datetime.now()
+           date_time = now.strftime("%Y%m%d_%H_%M")
+           self.XSAMSFileName = "./XSAMS/"+date_time+ self.nodeEndpoint +".xsams"
 
-        output_file = Path(filename)
+        output_file = Path(self.XSAMSFileName)
         output_file.parent.mkdir(exist_ok=True, parents=True)
         output_file.write_bytes(queryResult.content)
        
@@ -84,9 +89,8 @@ class VamdcQuery:
        self.lines_df = None
 
        # if the data are there (we chek the presence with the Query Token)
-       if self.queryToken is not None:
+       if self.queryToken is not None or os.path.exists(self.XSAMSFileName):
           #xsltfile = ET.XSLT(ET.parse("/home/zwolf/Work/PythonDev/pyVAMDC/xsl/atomicxsams2html.xsl"))
-          resultFileName = "./XSAMS/"+self.queryToken+".xsams"
           #xmlfile = ET.parse(resultFileName)
           #output = xsltfile(xmlfile).write_output('test1.html')
 
@@ -95,7 +99,7 @@ class VamdcQuery:
           #print(tableHTML[0])
           #print(tableHTML[1])
          
-          xml_doc = ET.parse(resultFileName)
+          xml_doc = ET.parse(self.XSAMSFileName)
 
           # Get the full path of the current script
           script_path = Path(__file__).resolve()
