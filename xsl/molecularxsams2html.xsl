@@ -120,10 +120,6 @@
             <table id="transitions" class="tablesorter">
               <thead>
                 <tr>
-                  <th id="c1">
-                    <span class="title"/>
-                    <button id="select_all_lines">Unselect all</button>
-                  </th>
                   <xsl:if test="$chemicalNameCount &gt; 0">
                     <th id="c2">
                       <span class="title">Chemical name</span>
@@ -342,9 +338,6 @@
     <xsl:variable name="lowerState" select="key('molecularState', $lowerStateId)"/>
     <xsl:variable name="upperState" select="key('molecularState', $upperStateId)"/>
     <tr class="table-line">
-      <td data-columnid="c1">
-        <input type="checkbox" checked="checked" class="keep_line"/>
-      </td>
       <xsl:if test="$chemicalNameCount &gt; 0">
         <td data-columnid="c2">
           <a href="http://webbook.nist.gov/cgi/cbook.cgi?Units=SI&amp;InChI={$lowerState/../xsams:MolecularChemicalSpecies/xsams:InChIKey}">

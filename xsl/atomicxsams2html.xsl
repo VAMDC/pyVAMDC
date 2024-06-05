@@ -145,7 +145,6 @@
                       <table id="transitions" class="tablesorter">
                           <thead>
                               <tr>                                
-                                  <th id="c1"><span class="title"></span><button id="select_all_lines">Unselect all</button></th>
                                   <th id="c2"><span class="title">Spec Ion</span></th>
                                   
                                   <xsl:if test="$radiativeTransitionRefCount &gt; 0">
@@ -416,7 +415,6 @@
         <xsl:variable name="upperState" select="key('atomicState', $upperStateId)"/>
         
         <tr class="table-line">          
-            <td data-columnid="c1"><input type="checkbox" checked="checked" class="keep_line"/></td>
             <td data-columnid="c2">
                 <a href="http://webbook.nist.gov/cgi/cbook.cgi?Units=SI&amp;InChI={$lowerState/../xsams:InChIKey}">
                 <xsl:value-of select="$lowerState/../../../xsams:ChemicalElement/xsams:ElementSymbol"/>
