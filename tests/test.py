@@ -33,8 +33,7 @@ def main():
 
     atomicLines, molecularLines = getLines(lambdaMin, lambdaMax, nodes_dataframe=filtered_nodes_df, species_dataframe=species_df)
 
-    atomicLines.to_html("./atom.html")
-    molecularLines.to_html("./molecule.html")
+   
 
 if __name__=='__main__':
     main()
