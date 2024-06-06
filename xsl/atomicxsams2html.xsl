@@ -144,7 +144,13 @@
                       <!-- transitions table -->
                       <table id="transitions" class="tablesorter">
                           <thead>
-                              <tr>                                
+                              <tr>     
+                                  <th id="cO">
+                                    <span class="inchikey">InchIKey</span>
+                                  </th>      
+                                  <th id="c1">
+                                    <span class="inchi">InchI</span>
+                                  </th>                         
                                   <th id="c2"><span class="title">Spec Ion</span></th>
                                   
                                   <xsl:if test="$radiativeTransitionRefCount &gt; 0">
@@ -413,8 +419,14 @@
         <xsl:variable name="upperStateId" select="$radTran/xsams:UpperStateRef"/>
         <xsl:variable name="lowerState" select="key('atomicState', $lowerStateId)"/>
         <xsl:variable name="upperState" select="key('atomicState', $upperStateId)"/>
-        
-        <tr class="table-line">          
+
+        <tr class="table-line">   
+            <td data-columnid="c0">
+                <xsl:value-of select="$lowerState/../xsams:InChIKey"/>
+            </td> 
+            <td data-columnid="c1">
+                <xsl:value-of select="$lowerState/../xsams:InChI"/>
+            </td>       
             <td data-columnid="c2">
                 <a href="http://webbook.nist.gov/cgi/cbook.cgi?Units=SI&amp;InChI={$lowerState/../xsams:InChIKey}">
                 <xsl:value-of select="$lowerState/../../../xsams:ChemicalElement/xsams:ElementSymbol"/>
