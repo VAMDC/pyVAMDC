@@ -8,4 +8,4 @@ Then run the command:
 ```python setup.py install ```
 
 **Using Examples**
-Have a look to the code in the ```test``` subfloder.
+Have a look at the code in the ```tests``` subfloder.
