@@ -1,5 +1,4 @@
 
-
 def get_phisical_constants():
     physical_constants = {
         'c': 299792458 ,  # speed of light
@@ -43,7 +42,7 @@ def get_conversion_factors():
     }
     return conversion_factors
 
-def electromagnetic_convertersion(value, from_unit, to_unit):
+def electromagnetic_conversion(value, from_unit, to_unit):
     conversion_factors = get_conversion_factors()
     physical_constants = get_phisical_constants()
     
@@ -118,6 +117,27 @@ def electromagnetic_convertersion(value, from_unit, to_unit):
     return converted_value
    
 
-a = electromagnetic_convertersion(1 , 'eV', 'kelvin')
+class WrappingClass:
+    def __init__(self, from_unit, to_unit , conversion_function):
+        self.from_unit = from_unit
+        self.to_unit = to_unit
+        self.conversion_function = conversion_function
+
+    def wrapped_function(self, value_to_convert):
+        return self.conversion_function(value_to_convert, self.from_unit, self.to_unit)
+
+
+def convert_dataframe_units(input_df, input_col_name, input_col_unit, output_col_name, output_col_unit, delete_input_col):
+    wrappedConversion = WrappingClass(input_col_unit, output_col_unit, electromagnetic_conversion)
+    input_df[output_col_name] = input_df[input_col_name].apply(lambda x : wrappedConversion.wrapped_function(x))
+
+    if delete_input_col is True:
+        input_df = input_df.drop(input_col_name, axis = 1)
+
+    return input_df
+
+
+
+a = electromagnetic_conversion(1 , 'eV', 'kelvin')
 print(a)
 
