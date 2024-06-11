@@ -40,7 +40,7 @@ def get_conversion_factors():
             'millimeter': 0.001,
             'micrometer': 0.000001,
             'nanometer': 0.000000001,
-            'angstrom': 1.00001501e-10
+            'angstrom': 1.0e-10
         }
     }
     return conversion_factors
