@@ -62,14 +62,3 @@ def filterDataHavingColumnNotContainingStrings(input_df, column_to_filter, subst
     filtered_df = input_df[mask]
 
     return filtered_df
-
-
-data = {'A': ['apple', 'banana', 'cherry', 'date', 'pineapple']}
-df = pd.DataFrame(data)
-
-# List of substrings to search for
-substring_list = ['app', 't', 'err']
-
-# Filter the DataFrame
-filtered_df = filterDataHavingColumnContainingStrings(df, 'A', substring_list)
-print(filtered_df)

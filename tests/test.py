@@ -1,12 +1,38 @@
-import os
 import pandas as pd
+import random
+import string
+
 from pyVAMDC.spectral.species import getSpeciesWithSearchCriteria, getNodeHavingSpecies
 from pyVAMDC.spectral.lines import getLines
+from pyVAMDC.spectral.energyConverter import convert_dataframe_units
+from pyVAMDC.spectral.filters import filterDataByColumnValues, filterDataHavingColumnContainingStrings, filterDataHavingColumnNotContainingStrings
 #from spectral import vamdcQuery
 
 
 def main():
+    # Let us test filtering functions on some simple data-frame
+    A = [random.uniform(0, 1) for _ in range(20)]
+    B = [''.join(random.choices(string.ascii_uppercase + string.digits, k=5)) for _ in range(20)]
+    C = [random.randint(0, 100) for _ in range(20)]
 
+
+    df = pd.DataFrame({'A': A, 'B': B, 'C': C})
+
+    # testing the unit conversion
+    df = convert_dataframe_units(df, 'A', 'angstrom', 'D', 'kelvin', False)
+
+    # testing the filter over some values of the dataframe
+    df = filterDataByColumnValues(df, 'C', 30 , 80)
+
+    # testing the filtering by string inlcusion 
+    filtered_df = filterDataHavingColumnContainingStrings(df, 'B', ["A", "XB", "33"])
+
+    # testing the filtering by string exclusion 
+    filtered_df = filterDataHavingColumnNotContainingStrings(df, 'B', ["ZE", "ZY", "12"])
+
+    print(filtered_df)
+
+    # starting testing VAMDC functionalities
     nodes_df = getNodeHavingSpecies()
   
     # We just select the CDMS (number 8) and topbase (number 27) nodes for testing the library

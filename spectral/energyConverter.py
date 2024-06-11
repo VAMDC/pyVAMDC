@@ -1,4 +1,7 @@
 
+
+import filters
+
 def get_phisical_constants():
     physical_constants = {
         'c': 299792458 ,  # speed of light
@@ -135,9 +138,4 @@ def convert_dataframe_units(input_df, input_col_name, input_col_unit, output_col
         input_df = input_df.drop(input_col_name, axis = 1)
 
     return input_df
-
-
-
-a = electromagnetic_conversion(1 , 'eV', 'kelvin')
-print(a)
 
