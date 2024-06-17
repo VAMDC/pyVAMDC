@@ -12,5 +12,5 @@ setup(
     },
     package_data={'':['./xsl/*.xsl']},
     include_package_data=True,
-    install_requires=['pandas','lxml', 'requests'] 
+    install_requires=['pandas','lxml', 'requests','rdkit-pypi'] 
 )

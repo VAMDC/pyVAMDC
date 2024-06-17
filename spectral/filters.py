@@ -1,5 +1,3 @@
-import pandas as pd
-
 def filterDataByColumnValues(input_df, colum_to_filter, minValue = None, maxValue = None):
     
     df_to_return = None

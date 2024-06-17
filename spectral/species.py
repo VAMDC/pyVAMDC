@@ -3,6 +3,8 @@ import json
 import urllib.request
 from datetime import datetime
 from io import StringIO
+from rdkit import Chem
+import numpy as np
 
 def _getEndpoints():
     urlNodeEnpoint = 'https://species.vamdc.org/web-service/api/v12.07/nodes'
@@ -142,3 +144,38 @@ def _getChemicalInfoFromEnpoint(specificSpeciesEndpoint):
     AllSpeciesDF = AllSpeciesDF.drop('lastSeenDateTime', axis=1)
 
     return AllSpeciesDF, df_nodes
+
+
+def getChemicalInformationsFromInchi(inchi):
+    mol = Chem.MolFromInchi(inchi, sanitize=False, removeHs=False)
+    mol = Chem.AddHs(mol) 
+    
+    atoms_set = set()
+    atoms_list = list()
+    total_charge = 0
+
+    for atom in mol.GetAtoms():
+        atoms_set.add(atom.GetSymbol())
+        atoms_list.append(atom.GetSymbol())
+        total_charge += atom.GetFormalCharge()
+
+    return len(atoms_set), len(atoms_list), total_charge, atoms_set, atoms_list
+
+
+def addComputedChemicalInfo(input_df):
+    if "InChI" in input_df.columns:
+        for index, row in input_df.iterrows():
+            inchi = row['InChI']
+            try:
+                number_unique_atoms, number_total_atoms, computed_charge , _ , _, = getChemicalInformationsFromInchi(inchi)
+            except:
+                print("Exception in converting the InChI:" + str(inchi))
+                number_unique_atoms = np.nan
+                number_total_atoms = np.nan
+                computed_charge = np.nan
+            finally:
+                input_df.at[index, '# unique atoms'] = number_unique_atoms
+                input_df.at[index, '# total atoms'] = number_total_atoms
+                input_df.at[index, 'computed charge'] =  computed_charge
+                
+    return input_df
