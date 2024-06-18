@@ -5,6 +5,7 @@ from datetime import datetime
 from io import StringIO
 from rdkit import Chem
 import numpy as np
+from rdkit.Chem import Draw
 
 def _getEndpoints():
     urlNodeEnpoint = 'https://species.vamdc.org/web-service/api/v12.07/nodes'
@@ -162,6 +163,8 @@ def getChemicalInformationsFromInchi(inchi):
     return len(atoms_set), len(atoms_list), total_charge, atoms_set, atoms_list
 
 
+
+
 def addComputedChemicalInfo(input_df):
     if "InChI" in input_df.columns:
         for index, row in input_df.iterrows():
@@ -179,3 +182,30 @@ def addComputedChemicalInfo(input_df):
                 input_df.at[index, 'computed charge'] =  computed_charge
                 
     return input_df
+
+
+def generate_molecule_image(inchi, image_path_and_name, size=(300, 300)):
+    """
+    Generate and save the 2D depiction of a molecule from its InChI.
+
+    Args:
+        inchi (str): The InChI string of the molecule.
+        image_path_and_name (str): The filename to save the molecule image.
+        size (tuple, optional): The dimensions of the image in pixels. Defaults to (300, 300).
+
+    Returns:
+        image (a PIL Image object): the producted image 
+    """
+    try:
+        # Convert the InChI to a RDKit molecule object
+        mol = Chem.MolFromInchi(inchi)
+        # Generate the 2D depiction of the molecule
+        mol_image = Draw.MolToImage(mol, size=size)
+        # Save the molecule image to a file
+        mol_image.save(image_path_and_name)
+    except:
+         print("Exception in converting the InChI:" + str(inchi))
+         mol_image = None
+    finally:
+        return mol_image
+    
