@@ -1,7 +1,3 @@
-
-
-import filters
-
 def get_phisical_constants():
     physical_constants = {
         'c': 299792458 ,  # speed of light
