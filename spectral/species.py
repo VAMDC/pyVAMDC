@@ -3,8 +3,10 @@ import json
 import urllib.request
 from datetime import datetime
 from io import StringIO
-from rdkit import Chem
+
 import numpy as np
+
+from rdkit import Chem
 from rdkit.Chem import Draw
 
 def _getEndpoints():
@@ -198,13 +200,15 @@ def generate_molecule_image(inchi, image_path_and_name, size=(300, 300)):
     """
     try:
         # Convert the InChI to a RDKit molecule object
-        mol = Chem.MolFromInchi(inchi)
+        mol = Chem.MolFromInchi(inchi, sanitize=False, removeHs=False)
+        mol = Chem.AddHs(mol) 
         # Generate the 2D depiction of the molecule
         mol_image = Draw.MolToImage(mol, size=size)
         # Save the molecule image to a file
         mol_image.save(image_path_and_name)
-    except:
+    except Exception as error:
          print("Exception in converting the InChI:" + str(inchi))
+         print(error)
          mol_image = None
     finally:
         return mol_image
