@@ -162,16 +162,16 @@ class VamdcQuery:
 
 
 
-def main():
-    node = "http://sesam.obspm.fr/12.07/vamdc/tap/"
-    inchi="UFHFLCQGNIYNRP-UHFFFAOYSA-N"
-    lambda_min = 10
-    lambda_max = 99076900
-    totalListOfQueries = []
-    speciesType = "molecule"
-    VamdcQuery(nodeEndpoint=node, lambdaMin=lambda_min, lambdaMax=lambda_max, InchiKey=inchi, totalListOfQueries=totalListOfQueries, speciesType=speciesType, verbose = True)
+# def main():
+#     node = "http://sesam.obspm.fr/12.07/vamdc/tap/"
+#     inchi="UFHFLCQGNIYNRP-UHFFFAOYSA-N"
+#     lambda_min = 10
+#     lambda_max = 99076900
+#     totalListOfQueries = []
+#     speciesType = "molecule"
+#     VamdcQuery(nodeEndpoint=node, lambdaMin=lambda_min, lambdaMax=lambda_max, InchiKey=inchi, totalListOfQueries=totalListOfQueries, speciesType=speciesType, verbose = True)
 
 
 
-if __name__ == "__main__":
-    main()
+# if __name__ == "__main__":
+#     main()
