@@ -2,7 +2,7 @@ import pandas as pd
 import pyVAMDC.spectral.species as species
 import pyVAMDC.spectral.vamdcQuery as vamdcQuery
 
-def getLines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = None):
+def getLines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = None, verbose = False):
     # if the provided species_dataframe is not provided, we build it by taking all the species
     if species_dataframe is None:
         species_dataframe , _ = species.getAllSpecies()
@@ -27,7 +27,7 @@ def getLines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = N
         speciesType = row["speciesType"]
 
         # for each row of the data-frame we create a VamdcQuery instance
-        vamdcQuery.VamdcQuery(nodeEndpoint,lambdaMin,lambdaMax, InChIKey, speciesType, listOfAllQueries)
+        vamdcQuery.VamdcQuery(nodeEndpoint,lambdaMin,lambdaMax, InChIKey, speciesType, listOfAllQueries, verbose)
 
     print("total amount of sub-queries to be submitted "+str(len(listOfAllQueries)))
 

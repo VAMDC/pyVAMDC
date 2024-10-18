@@ -5,9 +5,14 @@ import os
 from pathlib import Path
 import uuid
 
+
+def display_message(messageToDisplay, wannaDisplay):
+  if wannaDisplay:
+     print(messageToDisplay)
+
 class VamdcQuery:
 
-    def __init__(self, nodeEndpoint, lambdaMin, lambdaMax, InchiKey, speciesType, totalListOfQueries):
+    def __init__(self, nodeEndpoint, lambdaMin, lambdaMax, InchiKey, speciesType, totalListOfQueries, verbose = False):
         self.nodeEndpoint = nodeEndpoint
         self.lambdaMin = lambdaMin
         self.lambdaMax =lambdaMax
@@ -17,6 +22,12 @@ class VamdcQuery:
         self.truncated = None
         self.XSAMSFileName = None
         self.localUUID = None
+        self.verbose = verbose
+
+        self.localUUID = str(uuid.uuid4())
+
+        message = f"\nCreating {self.localUUID} ; l_min={lambdaMin} ; l_max={lambdaMax} ;  node ={nodeEndpoint} ; inchi={InchiKey}"
+        display_message(message,verbose)
 
         query = "select * where (RadTransWavelength >= {0} AND RadTransWavelength <= {1}) AND ((InchiKey = '{2}'))".format(lambdaMin, lambdaMax, InchiKey)
         self.vamdcCall = self.nodeEndpoint + "sync?LANG=VSS2&REQUEST=doQuery&FORMAT=XSAMS&QUERY="+query
@@ -26,30 +37,44 @@ class VamdcQuery:
          
         try:
             response = requests.head(self.vamdcCall, headers=headers)
-
+            
             if response.status_code == 200:
                 self.hasData = True
                
                 queryTruncation = response.headers.get("VAMDC-TRUNCATED")
                 if queryTruncation is None or queryTruncation == '100' or  queryTruncation == "None":
                     self.truncated = False
+                    message = f"__status {self.localUUID} is not truncated"
+                    
+                    display_message(message,verbose)
                 else:
                    self.truncated = True
-
+                   message = f"__status {self.localUUID} is truncated"
+                   display_message(message,verbose)
+            else:
+               message = f"__status {self.localUUID} has no data"
+               display_message(message,verbose)
+            
             # if the query has data
             if self.hasData is True:
               # if the query is not truncated
               if self.truncated is False :
                 # we add to the total list
                 totalListOfQueries.append(self)
+                message = f"++++++++ {self.localUUID} added to the list of queries to execute"
+                display_message(message,verbose)
+
               else:
                 #if the query is truncated we split it in two
                 newFirstLambdaMin = self.lambdaMin
                 newFirstLambdaMax = 0.5*(self.lambdaMax + self.lambdaMin)
                 newSecondLambdaMin = newFirstLambdaMax
                 newSecondLambdaMax = self.lambdaMax
-                VamdcQuery(self.nodeEndpoint, newFirstLambdaMin, newFirstLambdaMax, self.InchiKey, self.speciesType, totalListOfQueries)
-                VamdcQuery(self.nodeEndpoint, newSecondLambdaMin, newSecondLambdaMax, self.InchiKey, self.speciesType, totalListOfQueries)
+                message = f"-------> {self.localUUID} splitting ; l1_min ={newFirstLambdaMin}; l1_max={newFirstLambdaMax}; l2_min={newSecondLambdaMin}; l2_max={newSecondLambdaMax}"
+                display_message(message,verbose)
+                VamdcQuery(self.nodeEndpoint, newFirstLambdaMin, newFirstLambdaMax, self.InchiKey, self.speciesType, totalListOfQueries, verbose=self.verbose)
+                VamdcQuery(self.nodeEndpoint, newSecondLambdaMin, newSecondLambdaMax, self.InchiKey, self.speciesType, totalListOfQueries, verbose=self.verbose)
+                
 
         except TimeoutError as e:
             print("TimeOut error")
@@ -69,7 +94,6 @@ class VamdcQuery:
         if self.queryToken:
            self.XSAMSFileName = "./XSAMS/"+self.queryToken+".xsams"
         else:
-           self.localUUID = str(uuid.uuid4())
            self.XSAMSFileName = "./XSAMS/"+self.localUUID+".xsams"
 
         output_file = Path(self.XSAMSFileName)
@@ -135,3 +159,19 @@ class VamdcQuery:
 
           # adding to the data-frame the information about the queryToken
           self.lines_df["queryToken"]= self.queryToken if self.queryToken is not None else (self.localUUID+self.nodeEndpoint)
+
+
+
+def main():
+    node = "http://sesam.obspm.fr/12.07/vamdc/tap/"
+    inchi="UFHFLCQGNIYNRP-UHFFFAOYSA-N"
+    lambda_min = 10
+    lambda_max = 99076900
+    totalListOfQueries = []
+    speciesType = "molecule"
+    VamdcQuery(nodeEndpoint=node, lambdaMin=lambda_min, lambdaMax=lambda_max, InchiKey=inchi, totalListOfQueries=totalListOfQueries, speciesType=speciesType, verbose = True)
+
+
+
+if __name__ == "__main__":
+    main()
