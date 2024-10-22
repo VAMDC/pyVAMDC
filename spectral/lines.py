@@ -1,6 +1,33 @@
 import pandas as pd
 import pyVAMDC.spectral.species as species
 import pyVAMDC.spectral.vamdcQuery as vamdcQuery
+import multiprocessing
+
+class VAMDCQueryParallelWrapping:
+    def __init__(self, localDataFrame, lambdaMin, lambdaMax, verbose):
+        self.local_df = localDataFrame
+        self.lambdaMin = lambdaMin
+        self.lambdaMax = lambdaMax
+        self.verbose = verbose
+
+    def parallelMethod(self):
+        listOfQueries = []
+
+        # looping over the content of the local data frame
+        for index, row in self.local_df.iterrows():
+            nodeEndpoint = row["tapEndpoint"]
+            InChIKey = row["InChIKey"]
+            speciesType = row["speciesType"]
+
+            # for each row of the data-frame we create a VamdcQuery instance
+            vamdcQuery.VamdcQuery(nodeEndpoint,self.lambdaMin,self.lambdaMax, InChIKey, speciesType, listOfQueries, self.verbose)
+
+        return listOfQueries
+
+
+def process_instance(instance):
+    return instance.parallelMethod()
+
 
 def getLines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = None, verbose = False):
     # if the provided species_dataframe is not provided, we build it by taking all the species
@@ -17,17 +44,31 @@ def getLines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = N
     # fitler the list of species by selecting only the node from the selectedNodeList
     filtered_species_df = species_dataframe[species_dataframe["ivoIdentifier"].isin(selectedNodeList)]
 
-    # defining an empty list, which will be used to store all the VamdcQuery instances
+    # Let us split the dataFrame, grouping by nodes
+    df_list = [group for _, group in filtered_species_df.groupby('tapEndpoint')]
+
+    # defining the list for storing the instances of the query wrapping
+    wrappingInstances = []
+
+    # Loop over the list of dataFrame, for each element we create an instance of the wrapper to be added to the list of wrapping
+    for current_df in df_list:
+        instance = VAMDCQueryParallelWrapping(current_df, lambdaMin, lambdaMax, verbose)
+        wrappingInstances.append(instance)
+    
+    # We define the number of parallel processes, one for each wrapping instance
+    NbOfProcesses = len(wrappingInstances)
+
+    # we launch the parallel processing using the wrapper objects
+    with multiprocessing.Pool(processes=NbOfProcesses) as pool:
+        # Apply the process_instance function to each instance and get the results
+        results = pool.map(process_instance, wrappingInstances)
+
+     # defining an empty list, which will be used to store all the VamdcQuery instances returned by the parallel process
     listOfAllQueries = []
 
-    # looping over the content of the filtered data frame
-    for index, row in filtered_species_df.iterrows():
-        nodeEndpoint = row["tapEndpoint"]
-        InChIKey = row["InChIKey"]
-        speciesType = row["speciesType"]
+    for result in results:
+        listOfAllQueries.extend(result)
 
-        # for each row of the data-frame we create a VamdcQuery instance
-        vamdcQuery.VamdcQuery(nodeEndpoint,lambdaMin,lambdaMax, InChIKey, speciesType, listOfAllQueries, verbose)
 
     print("total amount of sub-queries to be submitted "+str(len(listOfAllQueries)))
 
