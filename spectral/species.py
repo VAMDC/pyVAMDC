@@ -10,29 +10,113 @@ from rdkit import Chem
 from rdkit.Chem import Draw
 
 def _getEndpoints():
+    """
+    get the two endpoints of the Species-database web services 
+    (cf. https://doi.org/10.1140/epjd/s10053-024-00863-1 for a detailed description of those services)
+
+    Returns:
+        urlNodeEnpoint : str
+            the url of the Node endpoint
+        urlSpeciesEntpoint : str
+            the url of the Species endpoint
+    """
     urlNodeEnpoint = 'https://species.vamdc.org/web-service/api/v12.07/nodes'
     urlSpeciesEntpoint = 'https://species.vamdc.org/web-service/api/v12.07/species'
     return urlNodeEnpoint, urlSpeciesEntpoint
 
 
 def getNodeHavingSpecies():
+    """
+   Returns a Pandas dataframe containing the information regarding the Nodes. Only the node having chemical-data are included in the dataframe 
+
+    Returns:
+        df_nodes : dataframe
+            a Pandas dataframe containing the information regarding the Nodes.
+    """
+    # get the Node-service endpoint
     urlNodeEnpoint, _ =_getEndpoints()
+
+    # interact with the service endpoint and format the result into json
     responseNode = urllib.request.urlopen(urlNodeEnpoint)
     json_list = responseNode.read()
-
     data = json.loads(json_list)
+
+    # convert the json to Pandas dataframe
     df_nodes = pd.json_normalize(data)
+
+    # return the generated dataframe
     return df_nodes
 
 
 def getAllSpecies():
+    """
+    Gets all the chemical information available on the Species Database. 
+    Returns two Pandas dataframe. One for the inforamtion regarding the Nodes, the other for the information regarding the chemical species within the Nodes. 
+
+    Returns:
+        AllSpeciedDF : dataframe
+            a Pandas dataframe containing all the chemical information available on the Species database.
+
+        df_nodes : dataframe
+            a Pandas dataframe containing the information regarding the Nodes.
+    """
+    # get the Species-database service endpoints
     _, urlSpeciesEndpoint = _getEndpoints()
+    # get the chemical information
     AllSpeciedDF, df_nodes = _getChemicalInfoFromEnpoint(urlSpeciesEndpoint)
     return AllSpeciedDF, df_nodes
 
 
 def getSpeciesWithSearchCriteria(text_search = None, stoichiometric_formula = None, mass_min = None, mass_max = None, charge_min = None, charge_max = None, type = None, ivo_identifier = None, inchikey = None, name = None, structural_formula = None):
-    
+    """
+    Gets the chemical informaton available on the Species Database, with restriction defined by the user. Restriction are defined via the calling arguments
+    Args:
+        text_search : str 
+            Restricts the results to those having at least a protion of one ot the five fields 'stoichiometric_formula', 'formula', 
+            'name', 'InChi', 'inchikey' equal to the user provided value. Default None.
+
+        stoichiometric_formula : str
+            Restricts the results to those having their stoichiometric  formulaequal equal to the provided valeu. Default is None. 
+        
+        mass_min : Integer
+            Restricts the results to those having their mass number greater than mass_min, Default None. 
+            If both mass_min nd mass_max are provided, the difference (mass_max - mass_min) is checked to be positive. Otherwise an exception is risen.
+        
+        mass_max : Integer 
+            Restricts the results to those having their mass number smaller than mass_max, Default None. 
+            If both mass_min nd mass_max are provided, the difference (mass_max - mass_min) is checked to be positive. Otherwise an exception is risen.
+        
+        charge_min : Integer
+            Restricts the results to those having their electric charge greater than charge_min, Default None. 
+            If both charge_min nd charge_max are provided, the difference (charge_max - charge_min) is checked to be positive. Otherwise an exception is risen. 
+        
+        charge_max = Integer
+            Restricts the results to those having their electric charge smaller than charge_max, Default None. 
+            If both charge_min nd charge_max are provided, the difference (charge_max - charge_min) is checked to be positive. Otherwise an exception is risen. 
+        
+        type : str
+            Restricts the results to those having their type equal to the provided value. Default None. 
+            Admitted Values are 'molecule', 'atom', 'particle' 
+        
+        ivo_identifier : str
+            Restricts the results to the data-Node whose identifier is equal to the provided value. Default None.
+        
+        inchikey : str
+            Restricts the results to those having the InchiKey equal to the provided value. Default None 
+
+        name : str
+            Restricts the results to those having the species name equal to the provided value. Default None 
+
+        structural_formula : str
+            Restricts the results to those having the structural formula equal to the provided value. Default None 
+
+     Returns:
+        species_df : dataframe
+            a Pandas dataframe containing the chemical information available on the Species database and satisfying all the defined restrictions.
+
+        df_nodes : dataframe
+            a Pandas dataframe containing the information regarding the Nodes.
+    """
     _, urlSpeciesEndpoint = _getEndpoints()
     
     urlSuffix = "?"
@@ -74,6 +158,16 @@ def getSpeciesWithSearchCriteria(text_search = None, stoichiometric_formula = No
 
 
 def getAllSpeciesInExcelFile(filePath):
+    """
+    Generate and save an Excel spreadsheet containing all the Chemical information extracted from the 
+    Species database.
+
+    Arg:
+        filePath (str): The path of the folder where the file will be generate.
+        
+    Returns:
+        filename (str): The absolute name (including the absolute path) of the generated file. This name will contain the creation timestamp.  
+    """
     AllSpeciesDF, df_nodes = getAllSpecies()
     
     now = datetime.now()
@@ -116,6 +210,17 @@ def getAllSpeciesInExcelFile(filePath):
 
 
 def _getChemicalInfoFromEnpoint(specificSpeciesEndpoint):
+    """
+    This function factors some code common to the 'getSpeciesWithSearchCriteria' and 'getAllSpecies' functions.  
+    It is not intended to be called directly, but only by the two functions we have just mentioned. 
+
+    Arg:
+        specificSpeciesEndpoint (str): the url of the endpoint to resolve to extract the chemical information
+        
+    Returns:
+        AllSpeciesDF (dataframe): a Pandas dataframe containing the chemical information obtained while resolving the URL in the specificSpeciesEndpoint variable.
+        df_nodes (dataframe):  a Pandas dataframe containing the information regarding the Nodes.
+    """
     response = urllib.request.urlopen(specificSpeciesEndpoint)
     data = json.loads(response.read())
 
@@ -146,10 +251,26 @@ def _getChemicalInfoFromEnpoint(specificSpeciesEndpoint):
     # Drop the original 'lastSeenDateTime' column
     AllSpeciesDF = AllSpeciesDF.drop('lastSeenDateTime', axis=1)
 
+    # enrich the AllSpeciesDF with chemical information locally computed
+    AllSpeciesDF = getChemicalInformationsFromInchi(AllSpeciesDF)
+
     return AllSpeciesDF, df_nodes
 
 
 def getChemicalInformationsFromInchi(inchi):
+    """
+    Provides some chemical characterisation of a given species, from its Inchi 
+
+    Args:
+        inchi (str): The InChI string of the molecule.
+        
+    Returns:
+        len(atom_set) (integer): the number of unique atoms in the species
+        len(atom_list) (integer): the number of total atoms in the species
+        total_charge (integer): the total electric charge of the species
+        atom_set (set): a set containing unique atoms forming a given species.
+        atom_list (list): a list containing the atoms forming a given species (with eventual duplications) 
+    """
     mol = Chem.MolFromInchi(inchi, sanitize=False, removeHs=False)
     mol = Chem.AddHs(mol) 
     
@@ -168,27 +289,44 @@ def getChemicalInformationsFromInchi(inchi):
 
 
 def addComputedChemicalInfo(input_df):
+    """
+    Adds some chemical characterisations to a dataframe containing species information.
+
+    Args:
+        input_df (dataframe): A dataframe containing chemical information. The input_df must contain at least 
+        a column named 'InChI' and containing valid InChI identifiers. 
+        
+
+    Returns:
+        input_df (dataframe): the input_df enriched with the chemical characterisation computed by the function. 
+        The columns added to the dataframe and populated with the computed values are: '# unique atoms', '# total atoms', 'computed charge'
+    """
+    # if the dataframe provided as call argument has a column called InChI
     if "InChI" in input_df.columns:
+        # let us iterate over the rows of the dataframe
         for index, row in input_df.iterrows():
             inchi = row['InChI']
             try:
+                # get some chemical information locally, from the InChI
                 number_unique_atoms, number_total_atoms, computed_charge , _ , _, = getChemicalInformationsFromInchi(inchi)
             except:
+                # if the chemical information can not be deduced from the Inchi
                 print("Exception in converting the InChI:" + str(inchi))
                 number_unique_atoms = np.nan
                 number_total_atoms = np.nan
                 computed_charge = np.nan
             finally:
+                # Enrich the input dataframe with the computed fields
                 input_df.at[index, '# unique atoms'] = number_unique_atoms
                 input_df.at[index, '# total atoms'] = number_total_atoms
                 input_df.at[index, 'computed charge'] =  computed_charge
-                
+    # return the enriched dataframe
     return input_df
 
 
 def generate_molecule_image(inchi, image_path_and_name, size=(300, 300)):
     """
-    Generate and save the 2D depiction of a molecule from its InChI.
+    Generates and save the 2D depiction of a molecule from its InChI.
 
     Args:
         inchi (str): The InChI string of the molecule.
