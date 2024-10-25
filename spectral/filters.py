@@ -1,5 +1,17 @@
 def filterDataByColumnValues(input_df, colum_to_filter, minValue = None, maxValue = None):
-    
+    """
+    Filters a DataFrame to include only rows where the value in the specified column (which must contain numbers)
+    satisfies numerical constraints, defined by the call arguments.
+
+    Args:
+        input_df (pandas.DataFrame): The input DataFrame.
+        column_to_filter (str): The name of the column to filter.
+        minValue (float): the inf value for filtering. Filtered results will be greater than this value. Default None.
+        maxValue (float): the sup value for filtering. Filtered results will be smaller than this value. Default None.
+
+    Returns:
+        pandas.DataFrame: A new DataFrame containing only the filtered rows.
+    """
     df_to_return = None
     
     if minValue is not None and maxValue is not None:
@@ -20,7 +32,7 @@ def filterDataByColumnValues(input_df, colum_to_filter, minValue = None, maxValu
 def filterDataHavingColumnContainingStrings(input_df, column_to_filter, substring_list):
     """
     Filters a DataFrame to include only rows where the value in the specified column
-    is a substring of at least one string in the given list.
+    contains at least one of the string in the list given as call argument.
 
     Args:
         input_df (pandas.DataFrame): The input DataFrame.
