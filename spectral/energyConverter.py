@@ -147,7 +147,7 @@ def electromagnetic_conversion(value, from_unit, to_unit):
     return converted_value
    
 
-class WrappingClass:
+class _WrappingClass:
     """
     This class is for internal use and not to be used by end-users. 
     This is a wrapping, kind of hack, to call the function electromagnetic_conversion as it was a lambda function containing a single parameter. 
@@ -194,7 +194,7 @@ def convert_dataframe_units(input_df, input_col_name, input_col_unit, output_col
         input_df : dataframe
             The dataframe containing a new column with the converted values.
     """
-    wrappedConversion = WrappingClass(input_col_unit, output_col_unit, electromagnetic_conversion)
+    wrappedConversion = _WrappingClass(input_col_unit, output_col_unit, electromagnetic_conversion)
     input_df[output_col_name] = input_df[input_col_name].apply(lambda x : wrappedConversion.wrapped_function(x))
 
     if delete_input_col is True:

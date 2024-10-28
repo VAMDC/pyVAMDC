@@ -6,7 +6,7 @@ from pathlib import Path
 import uuid
 
 
-def display_message(messageToDisplay, wannaDisplay):
+def _display_message(messageToDisplay, wannaDisplay):
   """
   This function is used to display log message in the console. 
 
@@ -124,7 +124,7 @@ class VamdcQuery:
       self.localUUID = str(uuid.uuid4())
 
       message = f"\nCreating {self.localUUID} ; l_min={lambdaMin} ; l_max={lambdaMax} ;  node ={nodeEndpoint} ; inchi={InchiKey}"
-      display_message(message,verbose)
+      _display_message(message,verbose)
 
       query = "select * where (RadTransWavelength >= {0} AND RadTransWavelength <= {1}) AND ((InchiKey = '{2}'))".format(lambdaMin, lambdaMax, InchiKey)
       self.vamdcCall = self.nodeEndpoint + "sync?LANG=VSS2&REQUEST=doQuery&FORMAT=XSAMS&QUERY="+query
@@ -143,14 +143,14 @@ class VamdcQuery:
                   self.truncated = False
                   message = f"__status {self.localUUID} is not truncated"
                     
-                  display_message(message,verbose)
+                  _display_message(message,verbose)
               else:
                   self.truncated = True
                   message = f"__status {self.localUUID} is truncated"
-                  display_message(message,verbose)
+                  _display_message(message,verbose)
           else:
               message = f"__status {self.localUUID} has no data"
-              display_message(message,verbose)
+              _display_message(message,verbose)
             
           # if the query has data
           if self.hasData is True:
@@ -159,7 +159,7 @@ class VamdcQuery:
               # we add to the total list
               totalListOfQueries.append(self)
               message = f"++++++++ {self.localUUID} added to the list of queries to execute"
-              display_message(message,verbose)
+              _display_message(message,verbose)
 
             else:
               #if the query is truncated we split it in two
@@ -168,7 +168,7 @@ class VamdcQuery:
               newSecondLambdaMin = newFirstLambdaMax
               newSecondLambdaMax = self.lambdaMax
               message = f"-------> {self.localUUID} splitting ; l1_min ={newFirstLambdaMin}; l1_max={newFirstLambdaMax}; l2_min={newSecondLambdaMin}; l2_max={newSecondLambdaMax}"
-              display_message(message,verbose)
+              _display_message(message,verbose)
               VamdcQuery(self.nodeEndpoint, newFirstLambdaMin, newFirstLambdaMax, self.InchiKey, self.speciesType, totalListOfQueries, verbose=self.verbose)
               VamdcQuery(self.nodeEndpoint, newSecondLambdaMin, newSecondLambdaMax, self.InchiKey, self.speciesType, totalListOfQueries, verbose=self.verbose)
                 
