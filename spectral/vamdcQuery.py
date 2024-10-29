@@ -8,7 +8,7 @@ import uuid
 
 def _display_message(messageToDisplay, wannaDisplay):
   """
-  This function is used to display log message in the console. 
+  This function is used to display log messages in the console. 
 
   Arguments
   ---------
@@ -24,9 +24,10 @@ def _display_message(messageToDisplay, wannaDisplay):
      print(messageToDisplay)
 
 class VamdcQuery:
-    """This class is a wrapper used to submit spectroscopic queries to the VAMDC infrastructure. 
-    This class implements low level mechanisms: unless you are a developer whishing to modify this low-level behaviour, it is suggested to use
-    the high level functions and classes which interact with the VAMDCQuery class while hiding the complexity. 
+    """
+    This class is used to submit spectroscopic queries to the VAMDC infrastructure. 
+    It implements low level mechanisms: unless you are a developer whishing to modify this low-level behaviours, it is suggested to use
+    the high level functions and classes which interact with the VAMDCQuery class while hiding the complexity (e.g. getLines in 'lines' module). 
     The VAMDCQuery class wraps spectroscopic queries having the following pattern:
     'select * where (RadTransWavelength >= lambdMin AND RadTransWavelength <= lambdaMax) AND ((InchiKey = 'InchiKey'))format(lambdaMin, lambdaMax, InchiKey)'
     and submit this type of queries to a specif VAMDC Node.
@@ -56,7 +57,7 @@ class VamdcQuery:
       this flag is true if, while executed, the query will generate data
 
     truncated : Boolean
-      this flag is true if, while executed, the query will be truncated (the resumt of the given query won't contain all the data available on a given data node)    
+      this flag is true if, while executed, the query will be truncated (the result of the given query won't contain all the data available on a given data node)    
     
     XSAMSFileName : str
       the name of the XSAMS output file generated while executing the query
@@ -65,28 +66,28 @@ class VamdcQuery:
       A local (client side) unique identifer for the query
     
     verbose : boolean
-      If this flag is true, detaile log information are displayed
+      If this flag is true, detailed log information are displayed
     
     Methods
     -------
     getXSAMSData()
-      Run the GET method on the query to dowloand the data. Query related data are stored using the XSAMSFileName name.
+      Run the GET method on the query to dowloand the data. The extracted data are stored using the XSAMSFileName name.
     
     
     convertToDataFrame()
       Convert the result of the query into a Pandas dataframe. This conversion is performed using the VAMDC-molecular
-      or VAMDC-atomic conversion processors (cf. https://github.com/VAMDC/Processors), according to the species involved in the query. 
+      or VAMDC-atomic conversion processors (cf. https://github.com/VAMDC/Processors), depending on the species involved in the query. 
 
     """
 
     def __init__(self, nodeEndpoint, lambdaMin, lambdaMax, InchiKey, speciesType, totalListOfQueries, verbose = False):
       """ This is the constructor of the VAMDCQuery class. 
       The subtlety consists in the fact that this constructor is recursive and takes as argument a list of VAMDCQuery instances already instanciated. 
-      This design copes with a particularity of the VAMDC infrastructure: if the result of a given query generated too much data, the result may be truncated. 
+      This design copes with a particularity of the VAMDC infrastructure: if the result of a given query generates too much data, the result may be truncated. 
       HEAD requests associated with the Query give the information about this truncation. In this constructor we instanciate an initial query and we verify, by executing 
-      the corresponding HEAD request, that this is not truncated and that this contain data. In that case, we add the current instance to the list of 
+      the corresponding HEAD request, that this is not truncated and that this contain data (thus avoiding empty results). In that case, we add the current instance to the list of 
       the existing instances (passed as an call argument to the constructor). If it is truncated, we split the query into two sub-queries. 
-      This mechanism being recursive, at the end the list of instances will contain only queries which will not be truncated while executed. 
+      This mechanism being recursive, at the end the list of instances will contain only queries which will not be truncated or empty while executed. 
 
       Arguments
       ----------
@@ -179,9 +180,9 @@ class VamdcQuery:
 
     def getXSAMSData(self):
       """
-      This method executes a GET request on the current query instance to extract data from the VAMDC infrastructure
+      This method executes a GET request on the current query instance to extract data from the VAMDC infrastructure.
       The data extraction is performed only if the query will contain data and will not be truncated 
-      (those states are checked running HEAD request in the class constructor).
+      (those states are checked running HEAD request in the object constructor).
       The dowloaded data are stored with the filename from the attribute XSAMSFileName
       """
       # to be changed in the final version of the lib. This option desactivate the Query Store notifications
@@ -214,9 +215,9 @@ class VamdcQuery:
 
     def convertToDataFrame(self):
        """
-       This method convert the result dowloaded (while executing the getXSAMSData on the current instance) from
+       This method convert the result dowloaded (while executing the getXSAMSData on the current instance) from the
        XSAMS data-format to Pandas dataframe. 
-       THis conversion is performed by locally applying the VAMDC processors (https://github.com/VAMDC/Processors): 
+       This conversion is performed by locally applying the VAMDC processors (https://github.com/VAMDC/Processors): 
        the atomic processor if the species in the query is an atom, the molecular processor if the species in the query is a molecule
        """
        self.lines_df = None

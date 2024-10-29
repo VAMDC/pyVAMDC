@@ -11,7 +11,7 @@ from rdkit.Chem import Draw
 
 def _getEndpoints():
     """
-    get the two endpoints of the Species-database web services 
+    Gets the two endpoints of the Species-database web services 
     (cf. https://doi.org/10.1140/epjd/s10053-024-00863-1 for a detailed description of those services)
 
     Returns:
@@ -58,7 +58,7 @@ def getAllSpecies():
             a Pandas dataframe containing all the chemical information available on the Species database.
 
         df_nodes : dataframe
-            a Pandas dataframe containing the information regarding the Nodes.
+            a Pandas dataframe containing the information regarding the Nodes which contain chemical information.
     """
     # get the Species-database service endpoints
     _, urlSpeciesEndpoint = _getEndpoints()
@@ -69,52 +69,52 @@ def getAllSpecies():
 
 def getSpeciesWithSearchCriteria(text_search = None, stoichiometric_formula = None, mass_min = None, mass_max = None, charge_min = None, charge_max = None, type = None, ivo_identifier = None, inchikey = None, name = None, structural_formula = None):
     """
-    Gets the chemical informaton available on the Species Database, with restriction defined by the user. Restriction are defined via the calling arguments
+    Gets the chemical informaton available on the Species Database, with restriction defined by the user. Restrictions are defined via the calling arguments
     Args:
-        text_search : str 
+        text_search: str 
             Restricts the results to those having at least a protion of one ot the five fields 'stoichiometric_formula', 'formula', 
             'name', 'InChi', 'inchikey' equal to the user provided value. Default None.
 
-        stoichiometric_formula : str
-            Restricts the results to those having their stoichiometric  formulaequal equal to the provided valeu. Default is None. 
+        stoichiometric_formula: str
+            Restricts the results to those having their stoichiometric formula equal to the provided value. Default is None. 
         
-        mass_min : Integer
-            Restricts the results to those having their mass number greater than mass_min, Default None. 
-            If both mass_min nd mass_max are provided, the difference (mass_max - mass_min) is checked to be positive. Otherwise an exception is risen.
+        mass_min: Integer
+            Restricts the results to those having their mass number greater than mass_min. Default None. 
+            If both mass_min and mass_max are provided, the difference (mass_max - mass_min) is checked to be positive. Otherwise an exception is risen.
         
-        mass_max : Integer 
-            Restricts the results to those having their mass number smaller than mass_max, Default None. 
-            If both mass_min nd mass_max are provided, the difference (mass_max - mass_min) is checked to be positive. Otherwise an exception is risen.
+        mass_max: Integer 
+            Restricts the results to those having their mass number smaller than mass_max. Default None. 
+            If both mass_min and mass_max are provided, the difference (mass_max - mass_min) is checked to be positive. Otherwise an exception is risen.
         
-        charge_min : Integer
-            Restricts the results to those having their electric charge greater than charge_min, Default None. 
+        charge_min: Integer
+            Restricts the results to those having their electric charge greater than charge_min. Default None. 
             If both charge_min nd charge_max are provided, the difference (charge_max - charge_min) is checked to be positive. Otherwise an exception is risen. 
         
-        charge_max = Integer
-            Restricts the results to those having their electric charge smaller than charge_max, Default None. 
+        charge_max: Integer
+            Restricts the results to those having their electric charge smaller than charge_max. Default None. 
             If both charge_min nd charge_max are provided, the difference (charge_max - charge_min) is checked to be positive. Otherwise an exception is risen. 
         
-        type : str
+        type: str
             Restricts the results to those having their type equal to the provided value. Default None. 
-            Admitted Values are 'molecule', 'atom', 'particle' 
+            Admitted Values are 'molecule', 'atom', 'particle'. 
         
-        ivo_identifier : str
+        ivo_identifier: str
             Restricts the results to the data-Node whose identifier is equal to the provided value. Default None.
         
-        inchikey : str
-            Restricts the results to those having the InchiKey equal to the provided value. Default None 
+        inchikey: str
+            Restricts the results to those having their InchiKey equal to the provided value. Default None. 
 
-        name : str
-            Restricts the results to those having the species name equal to the provided value. Default None 
+        name: str
+            Restricts the results to those having their species name equal to the provided value. Default None. 
 
         structural_formula : str
-            Restricts the results to those having the structural formula equal to the provided value. Default None 
+            Restricts the results to those having their structural formula equal to the provided value. Default None. 
 
      Returns:
-        species_df : dataframe
+        species_df: dataframe
             a Pandas dataframe containing the chemical information available on the Species database and satisfying all the defined restrictions.
 
-        df_nodes : dataframe
+        df_nodes: dataframe
             a Pandas dataframe containing the information regarding the Nodes.
     """
     _, urlSpeciesEndpoint = _getEndpoints()

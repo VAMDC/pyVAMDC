@@ -14,7 +14,7 @@ def get_phisical_constants():
 def get_conversion_factors():
     """
     Defines conversion factors between units.
-    Base unit for energt is Joule.
+    Base unit for energy is Joule.
     Base unit for frequency is Hertz.
     Base unit for wavelenght is meter.
     """
@@ -56,22 +56,22 @@ def electromagnetic_conversion(value, from_unit, to_unit):
     energy, frequencies and wavelenghts. 
 
     Args:
-        value : float
+        value: float
             The value (expressed in the unit defined by the variable 'from_unit') to convert.
         
-        from_unit :str
+        from_unit: str
             The unit one want to convert value from. Must take one of the following values: 
             joule, millijoule, nanojoule, picojoule, eV, erg, kelvin, rydberg, cm-1, hertz, kilohertz, megahertz
             gigahertz, terahertz, meter, centimeter,millimeter, micrometer, nanometer, angstrom
 
-        to_unit :str
+        to_unit: str
             The unit one want to convert value to. Must take one of the following values: 
             joule, millijoule, nanojoule, picojoule, eV, erg, kelvin, rydberg, cm-1, hertz, kilohertz, megahertz
             gigahertz, terahertz, meter, centimeter,millimeter, micrometer, nanometer, angstrom
         
     Returns:
-        converted_value : float
-            The valeu converted to the unit expressed by the content of the 'to_unit' variable.  
+        converted_value: float
+            The value converted to the unit expressed by the content of the 'to_unit' variable.  
     """
     conversion_factors = get_conversion_factors()
     physical_constants = get_phisical_constants()
@@ -188,7 +188,7 @@ def convert_dataframe_units(input_df, input_col_name, input_col_unit, output_col
             gigahertz, terahertz, meter, centimeter,millimeter, micrometer, nanometer, angstrom        
 
         delete_input_col: boolean
-            If this flaf is true, the column containing input value is deleted. Default False.
+            If this flag is true, the column containing input value is deleted. Default False.
         
     Returns:
         input_df : dataframe

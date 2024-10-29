@@ -5,9 +5,23 @@ import multiprocessing
 
 class _VAMDCQueryParallelWrapping:
     """
-    This class is a wrapping for the VamdcQuery class (module vamdcQuery) to parallelize part of the processing: the instanciation
-    of VamdcQuery objects and the execution of the related HEAD queries. We will use this wrapping to have a distinct parallelized process 
-    for each database (VAMDC node)
+    This class is a wrapping for the VamdcQuery class (defined in the vamdcQuery module) to parallelize part of the processings: the instanciation
+    of the VamdcQuery objects and the execution of the related HEAD queries. We will use this wrapping to have a distinct parallelized process instanciating 
+    queries, a process for each database (VAMDC node)
+
+    Args:
+        localDataFrame : dataframe
+            a dataframe containing species data. To run a parallel process for each VAMDC node, the field 
+            tapEndpoint of the dataframe localDataFrame must contain a unique value (the same for each row)
+            
+        lambdaMin : float
+            the inf boundary (in Angstrom) of the wavelenght interval
+        
+        lambdaMax : float
+            the sup boundary (in Angstrom) of the wavelenght interval  
+        
+        verbose : boolean
+            If True, display verbose logs. 
     """
     def __init__(self, localDataFrame, lambdaMin, lambdaMax, verbose):
         self.local_df = localDataFrame
@@ -17,7 +31,8 @@ class _VAMDCQueryParallelWrapping:
 
     def parallelMethod(self):
         """
-        Definition of the tasks that will be executed by each parallel process
+        Definition of the tasks that will be executed by each parallel process.
+        This tasks are the instanciation of the VamdcQuery objects (and the execution of the HEAD queries). 
         """
         listOfQueries = []
 
@@ -35,8 +50,8 @@ class _VAMDCQueryParallelWrapping:
 
 def _process_instance(instance):
     """
-    Definition of the mapping between the processes and the 
-    function executed by each process.
+    Definition of the mapping between the prallel processes and the 
+    tasks executed by each process.
     """
     return instance.parallelMethod()
 
@@ -55,14 +70,14 @@ def getLines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = N
         species_dataframe : dataframe
             restrict the extraction of the lines to the chemical species contained into the species_dataframe. 
             The species_dataframe is typically built by functions in the 'species' module (getAllSpecies, getSpeciesWithSearchCriteria), 
-            optionally filtered using the functions in the 'filters' module. 
+            optionally filtered using the functions in the 'filters' module and/or Pandas functionalities. 
             Default None. In this case there is no restriction on the species. 
 
         nodes_dataframe : dataframe
             restrict the extraction of the lines to the databases (VAMDC nodes) contained into the nodes_dataframe.
             The nodes_dataframe is typically built by the function 'getNodeHavingSpecies' in the 'species' module, optionally 
-            filtered using the functions in the 'filters' module. 
-            Default None. In this case there is no restriction on the species. 
+            filtered using the functions in the 'filters' module and/or Pandas functionalities. 
+            Default None. In this case there is no restriction on the Nodes. 
         
         verbose : boolean
             If True, display verbose logs. 
