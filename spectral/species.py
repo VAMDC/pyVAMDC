@@ -56,9 +56,35 @@ def getAllSpecies():
     Returns:
         AllSpeciedDF : dataframe
             a Pandas dataframe containing all the chemical information available on the Species database.
+            The structure of the dataframe is the following:
+                shortname: a human readable name for the node the current species is extracted from;
+                ivoIdentifier: the unique identifier for the Node the current species is extracted from;
+                InChI: the InChI chemical unique identifier for the current species;
+                InChIKey: the InChIKey derived from the InChI;
+                stoichiometricFormula: the stoichiometric Formula of the current species;
+                massNumber: the mass number for the current species;
+                charge: the electric charge for the current species;
+                speciesType: the type of the current species. Available values are 'molecule', 'atom', 'particle';
+                structuralFormula: the structural formula of the current species;
+                name: a human readable name for the current species;
+                did: an alternative unique identifier for the current species;
+                tapEndpoint: the enpoint of the Data Node from which data related to the current species may be extracted;
+                lastIngestionScriptDate: the last time the species database executed its ingestion script;
+                speciesLastSeenOn: the last time the species database has been fed with information about the current species. 
+
 
         df_nodes : dataframe
             a Pandas dataframe containing the information regarding the Nodes which contain chemical information.
+            The structure of the dataframe is the following:
+                shortName: a human readable name for the Data Node;
+                description: a human readable description og the Node;
+                contactEmail: the e-mail of the Node's mantainer;
+                ivoIdentifier: the unique identifier for the Node;
+                tapEndPoint: the endpoint to retrive data from;
+                referenceUrl: the webpage describing the node;
+                lastUpdate: the last time the chemical information has beed updated from this node;
+                lastSeen: the last time the node responded positevly to an update pull;
+                topics: a list of keywords describing the node.
     """
     # get the Species-database service endpoints
     _, urlSpeciesEndpoint = _getEndpoints()
@@ -113,9 +139,39 @@ def getSpeciesWithSearchCriteria(text_search = None, stoichiometric_formula = No
      Returns:
         species_df: dataframe
             a Pandas dataframe containing the chemical information available on the Species database and satisfying all the defined restrictions.
+            The structure of the dataframe is the following:
+                shortname: a human readable name for the node the current species is extracted from;
+                ivoIdentifier: the unique identifier for the Node the current species is extracted from;
+                InChI: the InChI chemical unique identifier for the current species;
+                InChIKey: the InChIKey derived from the InChI;
+                stoichiometricFormula: the stoichiometric Formula of the current species;
+                massNumber: the mass number for the current species;
+                charge: the electric charge for the current species;
+                speciesType: the type of the current species. Available values are 'molecule', 'atom', 'particle';
+                structuralFormula: the structural formula of the current species;
+                name: a human readable name for the current species;
+                did: an alternative unique identifier for the current species;
+                tapEndpoint: the enpoint of the Data Node from which data related to the current species may be extracted;
+                lastIngestionScriptDate: the last time the species database executed its ingestion script;
+                speciesLastSeenOn: the last time the species database has been fed with information about the current species.
 
         df_nodes: dataframe
             a Pandas dataframe containing the information regarding the Nodes.
+            The structure of the dataframe is the following:
+                shortname: a human readable name for the node the current species is extracted from;
+                ivoIdentifier: the unique identifier for the Node the current species is extracted from;
+                InChI: the InChI chemical unique identifier for the current species;
+                InChIKey: the InChIKey derived from the InChI;
+                stoichiometricFormula: the stoichiometric Formula of the current species;
+                massNumber: the mass number for the current species;
+                charge: the electric charge for the current species;
+                speciesType: the type of the current species. Available values are 'molecule', 'atom', 'particle';
+                structuralFormula: the structural formula of the current species;
+                name: a human readable name for the current species;
+                did: an alternative unique identifier for the current species;
+                tapEndpoint: the enpoint of the Data Node from which data related to the current species may be extracted;
+                lastIngestionScriptDate: the last time the species database executed its ingestion script;
+                speciesLastSeenOn: the last time the species database has been fed with information about the current species. 
     """
     _, urlSpeciesEndpoint = _getEndpoints()
     
