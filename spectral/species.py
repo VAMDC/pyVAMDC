@@ -308,7 +308,7 @@ def _getChemicalInfoFromEnpoint(specificSpeciesEndpoint):
     AllSpeciesDF = AllSpeciesDF.drop('lastSeenDateTime', axis=1)
 
     # enrich the AllSpeciesDF with chemical information locally computed
-    AllSpeciesDF = getChemicalInformationsFromInchi(AllSpeciesDF)
+    AllSpeciesDF = addComputedChemicalInfo(AllSpeciesDF)
 
     return AllSpeciesDF, df_nodes
 
