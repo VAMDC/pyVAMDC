@@ -26,6 +26,12 @@ class telescopeBands(Enum):
     Alma_band9 = [4000000, 5000000]
     Alma_band10= [3000000, 4000000]
 
+    # Bands for Noema
+    NOEMA_band1 = [2.500938e+07, 4.259384e+07]
+    NOEMA_band2 = [1.639357e+07, 2.360571e+07]
+    NOEMA_band3 = [1.086205e+07, 1.528555e+07]
+
+
     # Bands for Green Bank Observatory
     GBT_PF1_342 = [7.589682e+09, 1.033767e+10]
     GBT_PF1_450 = [5.765240e+09, 7.786817e+09]
@@ -48,6 +54,8 @@ class telescopeBands(Enum):
     GBT_W_band_MM_F4 = [3.213210e+07, 3.526970e+07]
     GBT_Mustang2 = [2.997925e+07, 3.747406e+07]
     GBT_ARGUS = [2.600108e+07, 3.747406e+07]
+
+
 
 
 
