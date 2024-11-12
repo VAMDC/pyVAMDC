@@ -14,6 +14,7 @@ class telescopeBands(Enum):
 
     #TODO to enrich this list with the bands of the main telescopes
 
+    # Bands for Alma
     Alma_band1 = [60000000, 86000000]
     Alma_band2 = [26000000, 45000000]
     Alma_band3 = [26000000, 36000000]
@@ -24,6 +25,31 @@ class telescopeBands(Enum):
     Alma_band8 = [6000000, 8000000]
     Alma_band9 = [4000000, 5000000]
     Alma_band10= [3000000, 4000000]
+
+    # Bands for Green Bank Observatory
+    GBT_PF1_342 = [7.589682e+09, 1.033767e+10]
+    GBT_PF1_450 = [5.765240e+09, 7.786817e+09]
+    GBT_PF1_600 = [4.344818e+09, 5.878283e+09]
+    GBT_PF1_800 = [3.258614e+09, 4.408713e+09]
+    GBT_PF2 = [2.437337e+09, 3.294423e+09]
+    GBT_L_band = [1.732904e+09, 2.606891e+09]
+    GBT_S_band = [1.153048e+09, 1.732904e+09]
+    GBT_C_band = [3.747406e+08, 7.589682e+08]
+    GBT_X_band = [2.584418e+08, 3.747406e+08]
+    GBT_Ku_band = [1.946704e+08, 2.498270e+08]
+    GBT_KFPA = [1.090154e+08, 1.665514e+08]
+    GBT_Ka_band_MM_F1 = [9.670724e+07, 1.153048e+08]
+    GBT_Ka_band_MM_F2 = [8.102499e+07, 9.829261e+07]
+    GBT_Ka_band_MM_F3 = [7.589682e+07, 8.327568e+07]
+    GBT_Q_band = [6.019929e+07, 7.847970e+07]
+    GBT_W_band_MM_F1 = [4.051249e+07, 4.474514e+07]
+    GBT_W_band_MM_F2 = [3.747406e+07, 4.106746e+07]
+    GBT_W_band_MM_F3 = [3.485959e+07, 3.794841e+07]
+    GBT_W_band_MM_F4 = [3.213210e+07, 3.526970e+07]
+    GBT_Mustang2 = [2.997925e+07, 3.747406e+07]
+    GBT_ARGUS = [2.600108e+07, 3.747406e+07]
+
+
 
     @property 
     def lambdaMin(self) -> float:
