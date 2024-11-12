@@ -31,7 +31,6 @@ class telescopeBands(Enum):
     NOEMA_band2 = [1.639357e+07, 2.360571e+07]
     NOEMA_band3 = [1.086205e+07, 1.528555e+07]
 
-
     # Bands for Green Bank Observatory
     GBT_PF1_342 = [7.589682e+09, 1.033767e+10]
     GBT_PF1_450 = [5.765240e+09, 7.786817e+09]
@@ -55,10 +54,6 @@ class telescopeBands(Enum):
     GBT_Mustang2 = [2.997925e+07, 3.747406e+07]
     GBT_ARGUS = [2.600108e+07, 3.747406e+07]
 
-
-
-
-
     @property 
     def lambdaMin(self) -> float:
         return self.value[0]
@@ -66,7 +61,26 @@ class telescopeBands(Enum):
     @property
     def lambdaMax(self) -> float:
         return self.value[1]
+
+
+   
+def getTelescopeBandFromLine(wavelength):
+    """
+    Find all telescope bands for a given wavelength, handling overlaps.
     
+    Args:
+        wavelength: float, the wavelength to check
+    
+    Return:
+        matching_bands: list(str) names of the bands that match or empty list if not found
+    """
+    telescope_bands_dict = {band.name: band.value for band in telescopeBands}
+    matching_bands = []
+    for band_name, range_values in telescope_bands_dict.items():
+        if range_values[0] <= wavelength <= range_values[1]:
+            matching_bands.append(band_name)
+    return matching_bands
+
 
 
 def getLinesByTelescopeBand(band:telescopeBands, species_dataframe = None, nodes_dataframe = None, verbose = False):
@@ -104,6 +118,7 @@ def getLinesByTelescopeBand(band:telescopeBands, species_dataframe = None, nodes
             identifier (nodeIdentifier) and the value is a datafrale containing the spectroscopic lines extracted from that database.
     """
     return getLines(band.lambdaMin, band.lambdaMax, species_dataframe=species_dataframe, nodes_dataframe=nodes_dataframe, verbose=verbose)
+
 
 
 
