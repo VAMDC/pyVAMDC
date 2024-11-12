@@ -1,7 +1,78 @@
 import pandas as pd
+import multiprocessing
+from enum import Enum
 import pyVAMDC.spectral.species as species
 import pyVAMDC.spectral.vamdcQuery as vamdcQuery
-import multiprocessing
+
+
+class telescopeBands(Enum):
+    """
+    This class defines the bands for the main telescopes.
+    Bands are named with the official telescope conventions. 
+    Wavelengths are expressend in Angstrom. 
+    """
+
+    #TODO to enrich this list with the bands of the main telescopes
+
+    Alma_band1 = [60000000, 86000000]
+    Alma_band2 = [26000000, 45000000]
+    Alma_band3 = [26000000, 36000000]
+    Alma_band4 = [18000000, 24000000]
+    Alma_band5 = [14000000, 18000000]
+    Alma_band6 = [11000000, 14000000]
+    Alma_band7 = [8000000, 11000000]
+    Alma_band8 = [6000000, 8000000]
+    Alma_band9 = [4000000, 5000000]
+    Alma_band10= [3000000, 4000000]
+
+    @property 
+    def lambdaMin(self) -> float:
+        return self.value[0]
+    
+    @property
+    def lambdaMax(self) -> float:
+        return self.value[1]
+    
+
+
+def getLinesByTelescopeBand(band:telescopeBands, species_dataframe = None, nodes_dataframe = None, verbose = False):
+    """
+    Extract all the spectroscopic lines for a given telescope band. 
+
+    Args:
+        band : telescopeBands
+            defines the telescope band to request data for. 
+            Bands are simply identified by their name: for example the function calling argument will be "telescopeBands.Alma_band3" for the 3rd band of Alma)
+             
+
+        species_dataframe : dataframe
+            restrict the extraction of the lines to the chemical species contained into the species_dataframe. 
+            The species_dataframe is typically built by functions in the 'species' module (getAllSpecies, getSpeciesWithSearchCriteria), 
+            optionally filtered using the functions in the 'filters' module and/or Pandas functionalities. 
+            Default None. In this case there is no restriction on the species. 
+
+        nodes_dataframe : dataframe
+            restrict the extraction of the lines to the databases (VAMDC nodes) contained into the nodes_dataframe.
+            The nodes_dataframe is typically built by the function 'getNodeHavingSpecies' in the 'species' module, optionally 
+            filtered using the functions in the 'filters' module and/or Pandas functionalities. 
+            Default None. In this case there is no restriction on the Nodes. 
+        
+        verbose : boolean
+            If True, display verbose logs. 
+  
+    Returns:
+        atomic_results_dict : dictionary
+            A dictionary containing the extracted lines for atomic species, grouped by databases. The keys of this dictionary is the database 
+            identifier (nodeIdentifier) and the value is a datafrale containing the spectroscopic lines extracted from that database. 
+        
+        molecular_results_dict : dictionary
+            A dictionary containing the extracted lines for molecular species, grouped by databases. The keys of this dictionary is the database 
+            identifier (nodeIdentifier) and the value is a datafrale containing the spectroscopic lines extracted from that database.
+    """
+    return getLines(band.lambdaMin, band.lambdaMax, species_dataframe=species_dataframe, nodes_dataframe=nodes_dataframe, verbose=verbose)
+
+
+
 
 class _VAMDCQueryParallelWrapping:
     """
