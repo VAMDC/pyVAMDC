@@ -5,9 +5,64 @@ from datetime import datetime
 from io import StringIO
 
 import numpy as np
+from enum import Enum
 
 from rdkit import Chem
 from rdkit.Chem import Draw
+
+
+class speciesByAstronomicalDomains(Enum):
+    """
+    This class defines some astronomical domain, together with their related species.
+    Chemical species are identified by theri IncIKey
+    """
+    
+    #TODO enrich the list of applications and related species
+
+    planetary_atmospheres = ["MWUXSHHQAYIFBG-UHFFFAOYSA-N","RAHZWNYVWXNFOC-UHFFFAOYSA-N","OKKJLVBELUTLKV-UHFFFAOYSA-N","XRJCSTPFBZTAPK-UHFFFAOYSA-N"]  
+    hot_cores = ["WSFSSNUMVMOOMR-UHFFFAOYSA-N","WSFSSNUMVMOOMR-UHFFFAOYSA-N","LELOWRISYMNNSU-UHFFFAOYSA-N"]
+    dark_clouds = ["WSFSSNUMVMOOMR-UHFFFAOYSA-N","LELOWRISYMNNSU-OUBTZVSYSA-N","BDAGIHXWWSANSR-UHFFFAOYSA-N","MWUXSHHQAYIFBG-UHFFFAOYSA-N"]
+    diffuse_clouds = ["WSFSSNUMVMOOMR-UHFFFAOYSA-N","LELOWRISYMNNSU-UHFFFAOYSA-N","MWUXSHHQAYIFBG-UHFFFAOYSA-N"]
+    comets = ["WSFSSNUMVMOOMR-UHFFFAOYSA-N","BDAGIHXWWSANSR-UHFFFAOYSA-N","MWUXSHHQAYIFBG-UHFFFAOYSA-N"]
+    agb_ppn_pn = ["WSFSSNUMVMOOMR-UHFFFAOYSA-N","LNDJVIYUJOJFSO-UHFFFAOYSA-N","TUJKJAMUKRIRHC-UHFFFAOYSA-N","HBMJWWWQQXIZIP-UHFFFAOYSA-N"]
+    extragalactic= ["WSFSSNUMVMOOMR-UHFFFAOYSA-N","MWUXSHHQAYIFBG-UHFFFAOYSA-N","WEVYAHXRMPXWCK-UHFFFAOYSA-N"]
+
+
+def getSpeciesByAstronomicalDomain(domain = speciesByAstronomicalDomains):
+    """
+    Gets all the chemical species for a given astronomical domain. 
+    
+    Arg:
+        domain : speciesByAstronomicalDomains
+        restriction to a given astronomical domain, defined in the "speciesByAstronomicalDomains" class
+
+    Returns:
+        AllSpeciedDF : dataframe
+            a Pandas dataframe containing all the chemical information available on the Species database.
+            The structure of the dataframe is the following:
+                shortname: a human readable name for the node the current species is extracted from;
+                ivoIdentifier: the unique identifier for the Node the current species is extracted from;
+                InChI: the InChI chemical unique identifier for the current species;
+                InChIKey: the InChIKey derived from the InChI;
+                stoichiometricFormula: the stoichiometric Formula of the current species;
+                massNumber: the mass number for the current species;
+                charge: the electric charge for the current species;
+                speciesType: the type of the current species. Available values are 'molecule', 'atom', 'particle';
+                structuralFormula: the structural formula of the current species;
+                name: a human readable name for the current species;
+                did: an alternative unique identifier for the current species;
+                tapEndpoint: the enpoint of the Data Node from which data related to the current species may be extracted;
+                lastIngestionScriptDate: the last time the species database executed its ingestion script;
+                speciesLastSeenOn: the last time the species database has been fed with information about the current species. 
+    """
+
+    # we start by getting all the species available within VAMDC
+    species_dataframe , _ = getAllSpecies()
+    speciesByDomain = domain.value
+    filtered_species_df = species_dataframe[species_dataframe["InChIKey"].isin(speciesByDomain)]
+    return filtered_species_df
+
+
 
 def _getEndpoints():
     """
