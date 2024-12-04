@@ -381,6 +381,7 @@ def getChemicalInformationsFromInchi(inchi):
         total_charge (integer): the total electric charge of the species
         atom_set (set): a set containing unique atoms forming a given species.
         atom_list (list): a list containing the atoms forming a given species (with eventual duplications) 
+        molWeight (integer) : the molecular mass of the species. 
     """
     mol = Chem.MolFromInchi(inchi, sanitize=False, removeHs=False)
     mol = Chem.AddHs(mol) 
@@ -394,7 +395,9 @@ def getChemicalInformationsFromInchi(inchi):
         atoms_list.append(atom.GetSymbol())
         total_charge += atom.GetFormalCharge()
 
-    return len(atoms_set), len(atoms_list), total_charge, atoms_set, atoms_list
+    molWeight = Descriptors.ExactMolWt(mol)
+
+    return len(atoms_set), len(atoms_list), total_charge, atoms_set, atoms_list, molWeight
 
 
 
@@ -419,18 +422,21 @@ def addComputedChemicalInfo(input_df):
             inchi = row['InChI']
             try:
                 # get some chemical information locally, from the InChI
-                number_unique_atoms, number_total_atoms, computed_charge , _ , _, = getChemicalInformationsFromInchi(inchi)
+                number_unique_atoms, number_total_atoms, computed_charge, _, _, computedWeight = getChemicalInformationsFromInchi(inchi)
             except:
                 # if the chemical information can not be deduced from the Inchi
                 print("Exception in converting the InChI:" + str(inchi))
                 number_unique_atoms = np.nan
                 number_total_atoms = np.nan
                 computed_charge = np.nan
+                computed_weight = np.nan
             finally:
                 # Enrich the input dataframe with the computed fields
                 input_df.at[index, '# unique atoms'] = number_unique_atoms
                 input_df.at[index, '# total atoms'] = number_total_atoms
                 input_df.at[index, 'computed charge'] =  computed_charge
+                input_df.at[index, 'computed mol_weight'] =  computedWeight
+                
     # return the enriched dataframe
     return input_df
 
