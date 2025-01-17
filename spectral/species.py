@@ -10,6 +10,7 @@ import numpy as np
 from enum import Enum
 
 from rdkit import Chem
+from rdkit.Chem import Descriptors
 from rdkit.Chem import Draw
 
 import logging
