@@ -445,7 +445,7 @@ def addComputedChemicalInfo(input_df):
                 number_unique_atoms, number_total_atoms, computed_charge, _, _, computed_weight = getChemicalInformationsFromInchi(inchi)
             except:
                 # if the chemical information can not be deduced from the Inchi
-                LOGGER.error("Exception in converting the InChI: + str(inchi) + " from " + row['ivoIdentifier']")
+                LOGGER.error("Exception in converting the InChI: %s from %s" % (str(inchi), row['ivoIdentifier']))
                 #print("Exception in converting the InChI:" + str(inchi))
                 number_unique_atoms = np.nan
                 number_total_atoms = np.nan
