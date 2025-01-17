@@ -1,3 +1,5 @@
+from logging import Logger
+
 import pandas as pd
 import json
 import urllib.request
@@ -10,7 +12,11 @@ from enum import Enum
 from rdkit import Chem
 from rdkit.Chem import Draw
 
+import logging
+from logging import Logger
 
+
+LOGGER = logging.getLogger(__name__)
 class speciesByAstronomicalDomains(Enum):
     """
     This class defines some astronomical domain, together with their related species.
@@ -113,18 +119,31 @@ def getAllSpecies():
             a Pandas dataframe containing all the chemical information available on the Species database.
             The structure of the dataframe is the following:
                 shortname: a human readable name for the node the current species is extracted from;
+
                 ivoIdentifier: the unique identifier for the Node the current species is extracted from;
+
                 InChI: the InChI chemical unique identifier for the current species;
+
                 InChIKey: the InChIKey derived from the InChI;
+                
                 stoichiometricFormula: the stoichiometric Formula of the current species;
+                
                 massNumber: the mass number for the current species;
+                
                 charge: the electric charge for the current species;
+                
                 speciesType: the type of the current species. Available values are 'molecule', 'atom', 'particle';
+                
                 structuralFormula: the structural formula of the current species;
+                
                 name: a human readable name for the current species;
+                
                 did: an alternative unique identifier for the current species;
+                
                 tapEndpoint: the enpoint of the Data Node from which data related to the current species may be extracted;
+                
                 lastIngestionScriptDate: the last time the species database executed its ingestion script;
+                
                 speciesLastSeenOn: the last time the species database has been fed with information about the current species. 
 
 
@@ -395,9 +414,9 @@ def getChemicalInformationsFromInchi(inchi):
         atoms_list.append(atom.GetSymbol())
         total_charge += atom.GetFormalCharge()
 
-    molWeight = Descriptors.ExactMolWt(mol)
+    mol_weight = Descriptors.ExactMolWt(mol)
 
-    return len(atoms_set), len(atoms_list), total_charge, atoms_set, atoms_list, molWeight
+    return len(atoms_set), len(atoms_list), total_charge, atoms_set, atoms_list, mol_weight
 
 
 
@@ -422,10 +441,11 @@ def addComputedChemicalInfo(input_df):
             inchi = row['InChI']
             try:
                 # get some chemical information locally, from the InChI
-                number_unique_atoms, number_total_atoms, computed_charge, _, _, computedWeight = getChemicalInformationsFromInchi(inchi)
+                number_unique_atoms, number_total_atoms, computed_charge, _, _, computed_weight = getChemicalInformationsFromInchi(inchi)
             except:
                 # if the chemical information can not be deduced from the Inchi
-                print("Exception in converting the InChI:" + str(inchi))
+                LOGGER.error("Exception in converting the InChI:" + str(inchi))
+                #print("Exception in converting the InChI:" + str(inchi))
                 number_unique_atoms = np.nan
                 number_total_atoms = np.nan
                 computed_charge = np.nan
@@ -435,7 +455,7 @@ def addComputedChemicalInfo(input_df):
                 input_df.at[index, '# unique atoms'] = number_unique_atoms
                 input_df.at[index, '# total atoms'] = number_total_atoms
                 input_df.at[index, 'computed charge'] =  computed_charge
-                input_df.at[index, 'computed mol_weight'] =  computedWeight
+                input_df.at[index, 'computed mol_weight'] =  computed_weight
                 
     # return the enriched dataframe
     return input_df
