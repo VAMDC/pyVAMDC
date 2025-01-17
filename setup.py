@@ -12,5 +12,5 @@ setup(
     },
     package_data={'':['./xsl/*.xsl']},
     include_package_data=True,
-    install_requires=['pandas','lxml', 'numpy>=2.0.0', 'requests','rdkit-pypi'] 
+    install_requires=['pandas','lxml', 'numpy>=2.0.0', 'requests','rdkit'] 
 )
