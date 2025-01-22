@@ -160,6 +160,13 @@ class VamdcQuery:
           if self.hasData is True:
             # if the query is not truncated
             if self.truncated is False :
+              # we get the XSAMS 
+              self.getXSAMSData()
+
+              # we convert data into dataframe
+              self.convertToDataFrame()
+
+
               # we add to the total list
               totalListOfQueries.append(self)
               message = f"++++++++ {self.localUUID} added to the list of queries to execute"

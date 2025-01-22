@@ -242,11 +242,11 @@ def getLines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = N
 
     # At this point the list listOfAllQueries contains all the query that can be run without truncation
     # For each query in the list, we get the data, and convert the data into a Pandas dataframe
-    for currentQuery in listOfAllQueries:
+ #   for currentQuery in listOfAllQueries:
         # get the data
-        currentQuery.getXSAMSData()
+ #       currentQuery.getXSAMSData()
         # convert the data 
-        currentQuery.convertToDataFrame()
+ #       currentQuery.convertToDataFrame()
     
     # now we build two dictionaries, one with all the molecular data-frames, the other one with atomic data-frames
     atomic_results_dict = {}
