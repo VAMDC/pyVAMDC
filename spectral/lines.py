@@ -158,7 +158,7 @@ class _VAMDCQueryParallelWrapping:
         This tasks are the instanciation of the VamdcQuery objects (and the execution of the HEAD queries). 
         """
         manager = Manager()
-        listOfQueries = manager.list()
+        self.listOfQueries = manager.list()
 
         # looping over the content of the local data frame
         for index, row in self.local_df.iterrows():
@@ -167,9 +167,8 @@ class _VAMDCQueryParallelWrapping:
             speciesType = row["speciesType"]
 
             # for each row of the data-frame we create a VamdcQuery instance
-            vamdcQuery.VamdcQuery(nodeEndpoint,self.lambdaMin,self.lambdaMax, InChIKey, speciesType, listOfQueries, self.verbose)
+            vamdcQuery.VamdcQuery(nodeEndpoint,self.lambdaMin,self.lambdaMax, InChIKey, speciesType, self.listOfQueries, self.verbose)
 
-        self.listOfQueries = list(listOfQueries)
 
 
 def _process_instance(instance):
