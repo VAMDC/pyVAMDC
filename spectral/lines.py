@@ -4,6 +4,8 @@ from enum import Enum
 import pyVAMDC.spectral.species as species
 import pyVAMDC.spectral.vamdcQuery as vamdcQuery
 
+from multiprocessing import Manager
+
 
 class telescopeBands(Enum):
     """
@@ -154,7 +156,8 @@ class _VAMDCQueryParallelWrapping:
         Definition of the tasks that will be executed by each parallel process.
         This tasks are the instanciation of the VamdcQuery objects (and the execution of the HEAD queries). 
         """
-        listOfQueries = []
+        manager = Manager()
+        listOfQueries = manager.list()
 
         # looping over the content of the local data frame
         for index, row in self.local_df.iterrows():
@@ -249,7 +252,8 @@ def getLines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = N
     listOfAllQueries = []
 
     for result in results:
-        listOfAllQueries.extend(result)
+        tempList = list(result)
+        listOfAllQueries.extend(tempList)
 
 
     print("total amount of sub-queries to be submitted "+str(len(listOfAllQueries)))

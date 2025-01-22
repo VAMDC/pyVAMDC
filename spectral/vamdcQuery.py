@@ -4,6 +4,8 @@ import pandas as pd
 import os
 from pathlib import Path
 import uuid
+from multiprocessing import Manager
+import threading
 
 
 def _display_message(messageToDisplay, wannaDisplay):
@@ -163,15 +165,26 @@ class VamdcQuery:
               _display_message(message,verbose)
 
             else:
-              #if the query is truncated we split it in two
-              newFirstLambdaMin = self.lambdaMin
-              newFirstLambdaMax = 0.5*(self.lambdaMax + self.lambdaMin)
-              newSecondLambdaMin = newFirstLambdaMax
-              newSecondLambdaMax = self.lambdaMax
-              message = f"-------> {self.localUUID} splitting ; l1_min ={newFirstLambdaMin}; l1_max={newFirstLambdaMax}; l2_min={newSecondLambdaMin}; l2_max={newSecondLambdaMax}"
-              _display_message(message,verbose)
-              VamdcQuery(self.nodeEndpoint, newFirstLambdaMin, newFirstLambdaMax, self.InchiKey, self.speciesType, totalListOfQueries, verbose=self.verbose)
-              VamdcQuery(self.nodeEndpoint, newSecondLambdaMin, newSecondLambdaMax, self.InchiKey, self.speciesType, totalListOfQueries, verbose=self.verbose)
+              # N is the number of splitting intervals
+              N = 4
+
+              # Calculate the width of each part
+              width = (self.lambdaMax - self.lambdaMin)/N
+              
+              # Generate the boundaries of each part
+              boundaries = [self.lambdaMin + i*width for i in range(N+1)]
+
+              intervals = [(boundaries[i], boundaries[i+1]) for i in range(N)]
+
+              threadList = []
+              for interval in intervals:
+                thread =  threading.Thread(target=VamdcQuery, args=(self.nodeEndpoint, interval[0], interval[1], self.InchiKey, self.speciesType, totalListOfQueries, self.verbose))
+                threadList.append(thread)
+                thread.start()
+                # VamdcQuery(self.nodeEndpoint, interval[0], interval[1], self.InchiKey, self.speciesType, totalListOfQueries, self.verbose)
+
+              for thread in  threadList:
+                thread.join()
                 
 
       except TimeoutError as e:
@@ -203,14 +216,9 @@ class VamdcQuery:
         output_file = Path(self.XSAMSFileName)
         output_file.parent.mkdir(exist_ok=True, parents=True)
         output_file.write_bytes(queryResult.content)
-       
-        #with open(filename, "wb") as file:
-        #Write the content of the response to the file
-        # file.write(queryResult.content.decode("utf-8"))
 
-#        file = codecs.open(filename, "w", "utf-8")
-#        file.write(queryResult.content.encode("utf-8"))
-#        file.close
+        message = f"++++++++ {self.localUUID} -----> File downloaded to {self.XSAMSFileName}"
+        _display_message(message,self.verbose)
        
 
     def convertToDataFrame(self):
@@ -270,18 +278,55 @@ class VamdcQuery:
           # adding to the data-frame the information about the queryToken. If not available, we use the local query UUID.
           self.lines_df["queryToken"]= self.queryToken if self.queryToken is not None else (self.localUUID+self.nodeEndpoint)
 
-
-
-# def main():
-#     node = "http://sesam.obspm.fr/12.07/vamdc/tap/"
-#     inchi="UFHFLCQGNIYNRP-UHFFFAOYSA-N"
-#     lambda_min = 10
-#     lambda_max = 99076900
-#     totalListOfQueries = []
-#     speciesType = "molecule"
-#     VamdcQuery(nodeEndpoint=node, lambdaMin=lambda_min, lambdaMax=lambda_max, InchiKey=inchi, totalListOfQueries=totalListOfQueries, speciesType=speciesType, verbose = True)
+          message = f"++++++++ {self.localUUID} ---- {self.XSAMSFileName} correctly converted to dataframe"
+          _display_message(message, self.verbose)
 
 
 
-# if __name__ == "__main__":
-#     main()
+def main():
+     node = "http://sesam.obspm.fr/12.07/vamdc/tap/"
+     inchi="UFHFLCQGNIYNRP-OUBTZVSYSA-N"
+     lambda_min = 970
+     lambda_max = 1000
+     manager = Manager()
+     totalListOfQueries = manager.list()
+     speciesType = "molecule"
+     VamdcQuery(nodeEndpoint=node, lambdaMin=lambda_min, lambdaMax=lambda_max, InchiKey=inchi, totalListOfQueries=totalListOfQueries, speciesType=speciesType, verbose = True)
+
+     print(len(totalListOfQueries))
+     totalListOfQueries = list(totalListOfQueries)
+
+
+     for currentQuery in totalListOfQueries:
+        print("current Query == "+str(currentQuery.localUUID))
+        # get the data
+        currentQuery.getXSAMSData()
+        # convert the data 
+        currentQuery.convertToDataFrame()
+
+     # now we build two dictionaries, one with all the molecular data-frames, the other one with atomic data-frames
+     atomic_results_dict = {}
+     molecular_results_dict= {}
+
+
+    # and we populate those two dictionaries by iterating over the queries that have been processed 
+     for currentQuery in totalListOfQueries:
+        print("******* current query ID == " +str(currentQuery.localUUID))
+        nodeIdentifier = currentQuery.nodeEndpoint
+       
+        if currentQuery.speciesType == "atom":
+            if nodeIdentifier in atomic_results_dict:
+                atomic_results_dict[nodeIdentifier] = pd.concat([atomic_results_dict[nodeIdentifier], currentQuery.lines_df], ignore_index=True)
+            else:
+                atomic_results_dict[nodeIdentifier] = currentQuery.lines_df
+        
+
+        if currentQuery.speciesType == "molecule":
+            if nodeIdentifier in molecular_results_dict:
+                 molecular_results_dict[nodeIdentifier] = pd.concat([molecular_results_dict[nodeIdentifier], currentQuery.lines_df], ignore_index=True)
+            else:
+                molecular_results_dict[nodeIdentifier] = currentQuery.lines_df 
+
+
+if __name__ == "__main__":
+   main()
