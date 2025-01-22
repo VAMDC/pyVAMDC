@@ -145,12 +145,13 @@ class _VAMDCQueryParallelWrapping:
         verbose : boolean
             If True, display verbose logs. 
     """
-    def __init__(self, localDataFrame, lambdaMin, lambdaMax, verbose, listOfQueries):
+    def __init__(self, localDataFrame, lambdaMin, lambdaMax, verbose, listOfQueries, numParallelWorkers):
         self.local_df = localDataFrame
         self.lambdaMin = lambdaMin
         self.lambdaMax = lambdaMax
         self.verbose = verbose
         self.listOfQueries = listOfQueries
+        self.numParallelWorkers = numParallelWorkers
         self.parallelMethod()
 
 
@@ -166,19 +167,10 @@ class _VAMDCQueryParallelWrapping:
             speciesType = row["speciesType"]
 
             # for each row of the data-frame we create a VamdcQuery instance
-            vamdcQuery.VamdcQuery(nodeEndpoint,self.lambdaMin,self.lambdaMax, InChIKey, speciesType, self.listOfQueries, self.verbose)
+            vamdcQuery.VamdcQuery(nodeEndpoint,self.lambdaMin,self.lambdaMax, InChIKey, speciesType, self.listOfQueries, self.verbose, self.numParallelWorkers)
 
 
-
-def _process_instance(instance):
-    """
-    Definition of the mapping between the prallel processes and the 
-    tasks executed by each process.
-    """
-    return instance.parallelMethod()
-
-
-def getLines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = None, verbose = False):
+def getLines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = None, verbose = False, numParallelWorkers = 2):
     """
     Extract all the spectroscopic lines in a given wavelenght interval. 
 
@@ -236,7 +228,7 @@ def getLines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = N
     threadList = []
     # Loop over the list of dataFrame, for each element we create an instance of the wrapper to be added to the list of wrapping
     for current_df in df_list:
-        thread =  threading.Thread(target=_VAMDCQueryParallelWrapping, args=(current_df, lambdaMin, lambdaMax, verbose, totalListOfQueries))
+        thread =  threading.Thread(target=_VAMDCQueryParallelWrapping, args=(current_df, lambdaMin, lambdaMax, verbose, totalListOfQueries, numParallelWorkers))
         threadList.append(thread)
         thread.start()
 
