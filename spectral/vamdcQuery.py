@@ -82,7 +82,7 @@ class VamdcQuery:
 
     """
 
-    def __init__(self, nodeEndpoint, lambdaMin, lambdaMax, InchiKey, speciesType, totalListOfQueries, verbose = False):
+    def __init__(self, nodeEndpoint, lambdaMin, lambdaMax, InchiKey, speciesType, totalListOfQueries, verbose = False, numberSubIntervals = 2):
       """ This is the constructor of the VAMDCQuery class. 
       The subtlety consists in the fact that this constructor is recursive and takes as argument a list of VAMDCQuery instances already instanciated. 
       This design copes with a particularity of the VAMDC infrastructure: if the result of a given query generates too much data, the result may be truncated. 
@@ -123,6 +123,7 @@ class VamdcQuery:
       self.XSAMSFileName = None
       self.localUUID = None
       self.verbose = verbose
+      self.numberSubInterval = numberSubIntervals
 
       self.localUUID = str(uuid.uuid4())
 
@@ -165,20 +166,17 @@ class VamdcQuery:
               _display_message(message,verbose)
 
             else:
-              # N is the number of splitting intervals
-              N = 4
-
               # Calculate the width of each part
-              width = (self.lambdaMax - self.lambdaMin)/N
+              width = (self.lambdaMax - self.lambdaMin)/self.numberSubInterval
               
               # Generate the boundaries of each part
-              boundaries = [self.lambdaMin + i*width for i in range(N+1)]
+              boundaries = [self.lambdaMin + i*width for i in range(self.numberSubInterval+1)]
 
-              intervals = [(boundaries[i], boundaries[i+1]) for i in range(N)]
+              intervals = [(boundaries[i], boundaries[i+1]) for i in range(self.numberSubInterval)]
 
               threadList = []
               for interval in intervals:
-                thread =  threading.Thread(target=VamdcQuery, args=(self.nodeEndpoint, interval[0], interval[1], self.InchiKey, self.speciesType, totalListOfQueries, self.verbose))
+                thread =  threading.Thread(target=VamdcQuery, args=(self.nodeEndpoint, interval[0], interval[1], self.InchiKey, self.speciesType, totalListOfQueries, self.verbose, self.numberSubInterval))
                 threadList.append(thread)
                 thread.start()
                 # VamdcQuery(self.nodeEndpoint, interval[0], interval[1], self.InchiKey, self.speciesType, totalListOfQueries, self.verbose)
@@ -291,7 +289,7 @@ def main():
      manager = Manager()
      totalListOfQueries = manager.list()
      speciesType = "molecule"
-     VamdcQuery(nodeEndpoint=node, lambdaMin=lambda_min, lambdaMax=lambda_max, InchiKey=inchi, totalListOfQueries=totalListOfQueries, speciesType=speciesType, verbose = True)
+     VamdcQuery(nodeEndpoint=node, lambdaMin=lambda_min, lambdaMax=lambda_max, InchiKey=inchi, totalListOfQueries=totalListOfQueries, speciesType=speciesType, verbose = True, numberSubIntervals=4)
 
      print(len(totalListOfQueries))
      totalListOfQueries = list(totalListOfQueries)

@@ -5,7 +5,7 @@ import pyVAMDC.spectral.species as species
 import pyVAMDC.spectral.vamdcQuery as vamdcQuery
 
 from multiprocessing import Manager
-
+import threading
 
 class telescopeBands(Enum):
     """
@@ -151,6 +151,7 @@ class _VAMDCQueryParallelWrapping:
         self.lambdaMax = lambdaMax
         self.verbose = verbose
 
+
     def parallelMethod(self):
         """
         Definition of the tasks that will be executed by each parallel process.
@@ -168,7 +169,7 @@ class _VAMDCQueryParallelWrapping:
             # for each row of the data-frame we create a VamdcQuery instance
             vamdcQuery.VamdcQuery(nodeEndpoint,self.lambdaMin,self.lambdaMax, InChIKey, speciesType, listOfQueries, self.verbose)
 
-        return listOfQueries
+        self.listOfQueries = listOfQueries
 
 
 def _process_instance(instance):
@@ -233,28 +234,24 @@ def getLines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = N
 
     # defining the list for storing the instances of the query wrapping
     wrappingInstances = []
-
+    threadList = []
     # Loop over the list of dataFrame, for each element we create an instance of the wrapper to be added to the list of wrapping
     for current_df in df_list:
         instance = _VAMDCQueryParallelWrapping(current_df, lambdaMin, lambdaMax, verbose)
+        thread =  threading.Thread(target=instance.parallelMethod, args=(current_df, lambdaMin, lambdaMax, verbose))
+        threadList.append(thread)
         wrappingInstances.append(instance)
+        thread.start()
+
+    for thread in threadList:
+        thread.join()
     
-    # We define the number of parallel processes, one for each wrapping instance
-    NbOfProcesses = len(wrappingInstances)
-
-    # we launch the parallel processing using the wrapper objects
-    # we will have a process for each datanode
-    with multiprocessing.Pool(processes=NbOfProcesses) as pool:
-        # Apply the process_instance function to each instance and get the results
-        results = pool.map(_process_instance, wrappingInstances)
-
      # defining an empty list, which will be used to store all the VamdcQuery instances returned by the parallel process
     listOfAllQueries = []
 
-    for result in results:
-        tempList = list(result)
-        listOfAllQueries.extend(tempList)
-
+    for instance in wrappingInstances:
+        tempList = list(instance.listOfQueries)
+        listOfAllQueries.append(tempList)
 
     print("total amount of sub-queries to be submitted "+str(len(listOfAllQueries)))
 
