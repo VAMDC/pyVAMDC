@@ -145,11 +145,13 @@ class _VAMDCQueryParallelWrapping:
         verbose : boolean
             If True, display verbose logs. 
     """
-    def __init__(self, localDataFrame, lambdaMin, lambdaMax, verbose):
+    def __init__(self, localDataFrame, lambdaMin, lambdaMax, verbose, listOfQueries):
         self.local_df = localDataFrame
         self.lambdaMin = lambdaMin
         self.lambdaMax = lambdaMax
         self.verbose = verbose
+        self.listOfQueries = listOfQueries
+        self.parallelMethod()
 
 
     def parallelMethod(self):
@@ -157,9 +159,6 @@ class _VAMDCQueryParallelWrapping:
         Definition of the tasks that will be executed by each parallel process.
         This tasks are the instanciation of the VamdcQuery objects (and the execution of the HEAD queries). 
         """
-        manager = Manager()
-        self.listOfQueries = manager.list()
-
         # looping over the content of the local data frame
         for index, row in self.local_df.iterrows():
             nodeEndpoint = row["tapEndpoint"]
@@ -232,25 +231,20 @@ def getLines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = N
     df_list = [group for _, group in filtered_species_df.groupby('tapEndpoint')]
 
     # defining the list for storing the instances of the query wrapping
-    wrappingInstances = []
+    manager = Manager()
+    totalListOfQueries = manager.list()
     threadList = []
     # Loop over the list of dataFrame, for each element we create an instance of the wrapper to be added to the list of wrapping
     for current_df in df_list:
-        instance = _VAMDCQueryParallelWrapping(current_df, lambdaMin, lambdaMax, verbose)
-        thread =  threading.Thread(target=instance.parallelMethod, args=(current_df, lambdaMin, lambdaMax, verbose))
+        thread =  threading.Thread(target=_VAMDCQueryParallelWrapping, args=(current_df, lambdaMin, lambdaMax, verbose, totalListOfQueries))
         threadList.append(thread)
-        wrappingInstances.append(instance)
         thread.start()
 
     for thread in threadList:
         thread.join()
     
      # defining an empty list, which will be used to store all the VamdcQuery instances returned by the parallel process
-    listOfAllQueries = []
-
-    for instance in wrappingInstances:
-        tempList = list(instance.listOfQueries)
-        listOfAllQueries.append(tempList)
+    listOfAllQueries = list(totalListOfQueries)
 
     print("total amount of sub-queries to be submitted "+str(len(listOfAllQueries)))
 
