@@ -169,7 +169,7 @@ class _VAMDCQueryParallelWrapping:
             # for each row of the data-frame we create a VamdcQuery instance
             vamdcQuery.VamdcQuery(nodeEndpoint,self.lambdaMin,self.lambdaMax, InChIKey, speciesType, listOfQueries, self.verbose)
 
-        self.listOfQueries = listOfQueries
+        self.listOfQueries = list(listOfQueries)
 
 
 def _process_instance(instance):
