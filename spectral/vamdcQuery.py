@@ -186,7 +186,7 @@ class VamdcQuery:
       The dowloaded data are stored with the filename from the attribute XSAMSFileName
       """
       # to be changed in the final version of the lib. This option desactivate the Query Store notifications
-      headers = {'User-Agent':'VAMDC Query store'}
+      headers = {'User-Agent':'pyVAMDC v0.1'}
       self.queryToken = None
       
       # we get the data only if there is data and the request is not truncated
