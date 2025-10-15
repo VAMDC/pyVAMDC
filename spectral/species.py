@@ -16,6 +16,8 @@ from rdkit.Chem import Draw
 import logging
 from logging import Logger
 
+# Import the filters module
+from pyVAMDC.spectral.filters import filters
 
 LOGGER = logging.getLogger(__name__)
 class speciesByAstronomicalDomains(Enum):
@@ -108,6 +110,118 @@ def getNodeHavingSpecies():
 
     # return the generated dataframe
     return df_nodes
+
+
+def getSpeciesWithRestrictions(name = None, inchi = None, inchikey = None, ivo_identifier = None, 
+                               stoichiometric_formula = None, mass_min = None, mass_max = None, 
+                               charge_min = None, charge_max = None, type = None, number_unique_atoms_min = None, 
+                               number_unique_atoms_max = None, number_total_atoms_min = None, number_total_atoms_max = None, 
+                               computed_charge_min = None, computed_charge_max = None, computed_weight_min = None, computed_weight_max = None,
+                               tap_endpoint = None):
+    """
+    Gets all the chemical species with restrictions defined by the user.
+    
+    Args:
+        name (str): Filter species where stoichiometricFormula, structuralFormula, or name contains this string. Default None.
+        inchi (str): Filter by exact InChI match. Default None.
+        inchikey (str): Filter by exact InChIKey match. Default None.
+        ivo_identifier (str): Filter by IVO identifier. Default None.
+        stoichiometric_formula (str): Filter by exact stoichiometric formula match. Default None.
+        mass_min (int): Minimum mass number. Default None.
+        mass_max (int): Maximum mass number. Default None.
+        charge_min (int): Minimum charge. Default None.
+        charge_max (int): Maximum charge. Default None.
+        type (str): Filter by species type ('molecule', 'atom', 'particle'). Default None.
+        number_unique_atoms_min (int): Minimum number of unique atoms. Default None.
+        number_unique_atoms_max (int): Maximum number of unique atoms. Default None.
+        number_total_atoms_min (int): Minimum number of total atoms. Default None.
+        number_total_atoms_max (int): Maximum number of total atoms. Default None.
+        computed_charge_min (int): Minimum computed charge. Default None.
+        computed_charge_max (int): Maximum computed charge. Default None.
+        computed_weight_min (float): Minimum computed molecular weight. Default None.
+        computed_weight_max (float): Maximum computed molecular weight. Default None.
+        tap_endpoint (str): Filter by TAP endpoint of the node. Default None.
+    
+    Returns:
+        filtered_df (dataframe): Filtered species dataframe.
+        df_nodes (dataframe): Nodes dataframe.
+    """
+    # Get all species
+    species_df, df_nodes = getAllSpecies()
+    
+    # Apply filters based on provided arguments
+    
+    # Filter by name (search in stoichiometricFormula, structuralFormula, and name columns)
+    if name is not None:
+        # Create a combined filter for the three columns
+        mask = (
+            species_df['stoichiometricFormula'].astype(str).str.contains(name, case=False, na=False) |
+            species_df['structuralFormula'].astype(str).str.contains(name, case=False, na=False) |
+            species_df['name'].astype(str).str.contains(name, case=False, na=False)
+        )
+        species_df = species_df[mask]
+    
+    # Filter by inchi (exact match)
+    if inchi is not None:
+        species_df = species_df[species_df['InChI'] == inchi]
+    
+    # Filter by inchikey (exact match)
+    if inchikey is not None:
+        species_df = species_df[species_df['InChIKey'] == inchikey]
+    
+    # Filter by ivo_identifier
+    if ivo_identifier is not None:
+        species_df = species_df[species_df['ivoIdentifier'] == ivo_identifier]
+    
+    # Filter by stoichiometric_formula (exact match)
+    if stoichiometric_formula is not None:
+        species_df = species_df[species_df['stoichiometricFormula'] == stoichiometric_formula]
+    
+    # Filter by tap_endpoint
+    if tap_endpoint is not None:
+        species_df = species_df[species_df['tapEndpoint'] == tap_endpoint]
+    
+    # Filter by type
+    if type is not None:
+        species_df = species_df[species_df['speciesType'] == type]
+    
+    # Filter by mass range
+    if mass_min is not None or mass_max is not None:
+        species_df = filters.filterDataByColumnValues(
+            species_df, 'massNumber', minValue=mass_min, maxValue=mass_max
+        )
+    
+    # Filter by charge range
+    if charge_min is not None or charge_max is not None:
+        species_df = filters.filterDataByColumnValues(
+            species_df, 'charge', minValue=charge_min, maxValue=charge_max
+        )
+    
+    # Filter by number of unique atoms
+    if number_unique_atoms_min is not None or number_unique_atoms_max is not None:
+        species_df = filters.filterDataByColumnValues(
+            species_df, '# unique atoms', minValue=number_unique_atoms_min, maxValue=number_unique_atoms_max
+        )
+    
+    # Filter by number of total atoms
+    if number_total_atoms_min is not None or number_total_atoms_max is not None:
+        species_df = filters.filterDataByColumnValues(
+            species_df, '# total atoms', minValue=number_total_atoms_min, maxValue=number_total_atoms_max
+        )
+    
+    # Filter by computed charge
+    if computed_charge_min is not None or computed_charge_max is not None:
+        species_df = filters.filterDataByColumnValues(
+            species_df, 'computed charge', minValue=computed_charge_min, maxValue=computed_charge_max
+        )
+    
+    # Filter by computed weight
+    if computed_weight_min is not None or computed_weight_max is not None:
+        species_df = filters.filterDataByColumnValues(
+            species_df, 'computed mol_weight', minValue=computed_weight_min, maxValue=computed_weight_max
+        )
+    
+    return species_df, df_nodes
 
 
 def getAllSpecies():
