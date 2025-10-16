@@ -31,7 +31,7 @@ CACHE_DIR.mkdir(exist_ok=True)
 
 # Cache file paths
 NODES_CACHE_FILE = CACHE_DIR / 'nodes.json'
-SPECIES_CACHE_FILE = CACHE_DIR / 'species.parquet'
+SPECIES_CACHE_FILE = CACHE_DIR / 'species.pkl'
 SPECIES_METADATA_FILE = CACHE_DIR / 'species_metadata.json'
 
 # Cache expiration time (24 hours)
@@ -162,13 +162,13 @@ def species_cmd(ctx: click.Context, format: str, output: Optional[str], refresh:
         # Check cache
         if is_cache_valid(SPECIES_CACHE_FILE) and not refresh:
             click.echo("Loading species from cache...", err=True)
-            df_species = pd.read_parquet(SPECIES_CACHE_FILE)
+            df_species = pd.read_pickle(SPECIES_CACHE_FILE)
         else:
             click.echo("Fetching species from VAMDC Species Database...", err=True)
             df_species, _ = species.getAllSpecies()
 
-            # Cache the data in parquet format (more efficient)
-            df_species.to_parquet(SPECIES_CACHE_FILE)
+            # Cache the data using pickle (binary format)
+            df_species.to_pickle(SPECIES_CACHE_FILE)
             save_cache_metadata(SPECIES_CACHE_FILE)
 
         # Apply filters if specified
@@ -227,11 +227,11 @@ def lines(ctx: click.Context, inchikey: str, node: Optional[str], lambda_min: fl
 
         # Get all species data to filter
         if is_cache_valid(SPECIES_CACHE_FILE):
-            df_all_species = pd.read_parquet(SPECIES_CACHE_FILE)
+            df_all_species = pd.read_pickle(SPECIES_CACHE_FILE)
         else:
             click.echo("Fetching species data...", err=True)
             df_all_species, _ = species.getAllSpecies()
-            df_all_species.to_parquet(SPECIES_CACHE_FILE)
+            df_all_species.to_pickle(SPECIES_CACHE_FILE)
             save_cache_metadata(SPECIES_CACHE_FILE)
 
         # Filter to specific species
