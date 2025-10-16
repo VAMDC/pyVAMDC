@@ -142,15 +142,15 @@ def nodes(ctx: click.Context, format: str, output: Optional[str], refresh: bool)
         sys.exit(1)
 
 
-@get.command()
+@get.command(name='species')
 @click.option('--format', '-f', type=click.Choice(['json', 'csv', 'parquet', 'excel', 'table']),
               default='table', help='Output format')
 @click.option('--output', '-o', type=click.Path(), help='Output file path')
 @click.option('--refresh', is_flag=True, help='Force refresh cache')
 @click.option('--filter-by', type=click.STRING, help='Filter by criteria (e.g., "name:CO")')
 @click.pass_context
-def species(ctx: click.Context, format: str, output: Optional[str], refresh: bool,
-            filter_by: Optional[str]):
+def species_cmd(ctx: click.Context, format: str, output: Optional[str], refresh: bool,
+                filter_by: Optional[str]):
     """Get list of chemical species and cache them locally.
 
     Example:
