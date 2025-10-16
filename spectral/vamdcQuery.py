@@ -4,7 +4,7 @@ import pandas as pd
 import os
 from pathlib import Path
 import uuid
-
+import json
 
 def _display_message(messageToDisplay, wannaDisplay):
   """
@@ -68,6 +68,11 @@ class VamdcQuery:
     verbose : boolean
       If this flag is true, detailed log information are displayed
     
+    acceptTruncation : boolean
+      If this flag is false and the query is truncated, the query is recursively split into sub-queries until the sub-queries are not truncated anymore.
+      If this flas is false and the query is truncated, the query is not split. 
+      This flag has no effect on queries which are not truncated. 
+
     Methods
     -------
     getXSAMSData()
@@ -80,7 +85,7 @@ class VamdcQuery:
 
     """
 
-    def __init__(self, nodeEndpoint, lambdaMin, lambdaMax, InchiKey, speciesType, totalListOfQueries, verbose = False):
+    def __init__(self, nodeEndpoint, lambdaMin, lambdaMax, InchiKey, speciesType, totalListOfQueries, verbose = False, acceptTruncation = False):
       """ This is the constructor of the VAMDCQuery class. 
       The subtlety consists in the fact that this constructor is recursive and takes as argument a list of VAMDCQuery instances already instanciated. 
       This design copes with a particularity of the VAMDC infrastructure: if the result of a given query generates too much data, the result may be truncated. 
@@ -121,6 +126,8 @@ class VamdcQuery:
       self.XSAMSFileName = None
       self.localUUID = None
       self.verbose = verbose
+      self.acceptTruncation = acceptTruncation
+      self.head_response_json = None
 
       self.localUUID = str(uuid.uuid4())
 
@@ -135,6 +142,9 @@ class VamdcQuery:
          
       try:
           response = requests.head(self.vamdcCall, headers=headers)
+          headers_json = {key: value for key, value in response.headers.items()}
+          self.head_response_json = json.dumps(headers_json, indent=2)
+          print(self.head_response_json)
             
           if response.status_code == 200:
               self.hasData = True
@@ -156,7 +166,7 @@ class VamdcQuery:
           # if the query has data
           if self.hasData is True:
             # if the query is not truncated
-            if self.truncated is False :
+            if (self.truncated is False) or self.acceptTruncation:
               # we add to the total list
               totalListOfQueries.append(self)
               message = f"++++++++ {self.localUUID} added to the list of queries to execute"
@@ -190,7 +200,7 @@ class VamdcQuery:
       self.queryToken = None
       
       # we get the data only if there is data and the request is not truncated
-      if self.hasData is True and self.truncated is False:
+      if self.hasData is True and (self.truncated is False or self.acceptTruncation):
         queryResult = requests.get(self.vamdcCall, headers=headers)
         
         self.queryToken = queryResult.headers.get('VAMDC-REQUEST-TOKEN')
@@ -242,11 +252,11 @@ class VamdcQuery:
           parent_dir = script_path.parent.parent
 
           # Load the XSL file, according to the type of transormation needed 
-          if self.speciesType == "atom":
-            xslt_doc = ET.parse(str(parent_dir)+"/xsl/atomicxsams2html.xsl")
+          #if self.speciesType == "atom":
+          #xslt_doc = ET.parse(str(parent_dir)+"/xsl/atomicxsams2html.xsl")
 
-          if self.speciesType == "molecule":
-            xslt_doc = ET.parse(str(parent_dir)+"/xsl/molecularxsams2html.xsl")
+          #if self.speciesType == "molecule":
+          xslt_doc = ET.parse(str(parent_dir)+"/xsl/molecularxsams2html.xsl")
 
           transform = ET.XSLT(xslt_doc)
 
@@ -273,13 +283,16 @@ class VamdcQuery:
 
 
 # def main():
-#     node = "http://sesam.obspm.fr/12.07/vamdc/tap/"
-#     inchi="UFHFLCQGNIYNRP-UHFFFAOYSA-N"
-#     lambda_min = 10
-#     lambda_max = 99076900
+#     node = "http://topbase.obspm.fr/12.07/vamdc/tap/"
+#     inchi="DONWDOGXJBIXRQ-UHFFFAOYSA-N"
+#     lambda_min = 0
+#     lambda_max = 90009076900
 #     totalListOfQueries = []
 #     speciesType = "molecule"
-#     VamdcQuery(nodeEndpoint=node, lambdaMin=lambda_min, lambdaMax=lambda_max, InchiKey=inchi, totalListOfQueries=totalListOfQueries, speciesType=speciesType, verbose = True)
+#     VamdcQuery(nodeEndpoint=node, lambdaMin=lambda_min, lambdaMax=lambda_max, InchiKey=inchi, totalListOfQueries=totalListOfQueries, speciesType=speciesType, verbose = True, acceptTruncation=True),
+#     #totalListOfQueries[0].getXSAMSData()
+#     #totalListOfQueries[0].convertToDataFrame()
+#     #print(totalListOfQueries[0].lines_df)
 
 
 

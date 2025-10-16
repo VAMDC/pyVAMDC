@@ -107,6 +107,10 @@ def getLinesByTelescopeBand(band:telescopeBands, species_dataframe = None, nodes
         
         verbose : boolean
             If True, display verbose logs. 
+        acceptTruncation : boolean
+            If True, queries that are reported as truncated will be accepted (not split)
+            and included and exectuted as-is. If False (default), truncated queries are recursively split into sub-queries
+            until sub-queries are not truncated.
   
     Returns:
         atomic_results_dict : dictionary
@@ -118,8 +122,6 @@ def getLinesByTelescopeBand(band:telescopeBands, species_dataframe = None, nodes
             identifier (nodeIdentifier) and the value is a datafrale containing the spectroscopic lines extracted from that database.
     """
     return getLines(band.lambdaMin, band.lambdaMax, species_dataframe=species_dataframe, nodes_dataframe=nodes_dataframe, verbose=verbose)
-
-
 
 
 
@@ -143,11 +145,12 @@ class _VAMDCQueryParallelWrapping:
         verbose : boolean
             If True, display verbose logs. 
     """
-    def __init__(self, localDataFrame, lambdaMin, lambdaMax, verbose):
+    def __init__(self, localDataFrame, lambdaMin, lambdaMax, verbose, acceptTruncation):
         self.local_df = localDataFrame
         self.lambdaMin = lambdaMin
         self.lambdaMax = lambdaMax
         self.verbose = verbose
+        self.acceptTruncation = acceptTruncation
 
     def parallelMethod(self):
         """
@@ -163,7 +166,7 @@ class _VAMDCQueryParallelWrapping:
             speciesType = row["speciesType"]
 
             # for each row of the data-frame we create a VamdcQuery instance
-            vamdcQuery.VamdcQuery(nodeEndpoint,self.lambdaMin,self.lambdaMax, InChIKey, speciesType, listOfQueries, self.verbose)
+            vamdcQuery.VamdcQuery(nodeEndpoint,self.lambdaMin,self.lambdaMax, InChIKey, speciesType, listOfQueries, self.verbose, self.acceptTruncation)
 
         return listOfQueries
 
@@ -176,7 +179,99 @@ def _process_instance(instance):
     return instance.parallelMethod()
 
 
-def getLines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = None, verbose = False):
+def _build_and_run_wrappings(lambdaMin, lambdaMax, species_dataframe, nodes_dataframe, verbose, accept_truncation) -> list:
+     # if the provided species_dataframe is not provided, we build it by taking all the species
+    if species_dataframe is None:
+        species_dataframe , _ = species.getAllSpecies()
+
+    # if the provided node_dataframe is None
+    if nodes_dataframe is None:
+        nodes_dataframe = species.getNodeHavingSpecies()
+    
+    # Getting the list of the nodes passed as argument
+    selectedNodeList = nodes_dataframe["ivoIdentifier"].to_list()
+
+    # fitler the list of species by selecting only the node from the selectedNodeList
+    filtered_species_df = species_dataframe[species_dataframe["ivoIdentifier"].isin(selectedNodeList)]
+
+    # Let us split the dataFrame, grouping by nodes
+    df_list = [group for _, group in filtered_species_df.groupby('tapEndpoint')]
+
+    # defining the list for storing the instances of the query wrapping
+    wrappingInstances = []
+
+    # Loop over the list of dataFrame, for each element we create an instance of the wrapper to be added to the list of wrapping
+    for current_df in df_list:
+        instance = _VAMDCQueryParallelWrapping(current_df, lambdaMin, lambdaMax, verbose, acceptTruncation)
+
+        wrappingInstances.append(instance) 
+    
+    # We define the number of parallel processes, one for each wrapping instance
+    NbOfProcesses = len(wrappingInstances)
+
+    # we launch the parallel processing using the wrapper objects
+    # we will have a process for each datanode
+    with multiprocessing.Pool(processes=NbOfProcesses) as pool:
+        # Apply the process_instance function to each instance and get the results
+        results = pool.map(_process_instance, wrappingInstances)
+
+     # defining an empty list, which will be used to store all the VamdcQuery instances returned by the parallel process
+    listOfAllQueries = []
+
+    for result in results:
+        listOfAllQueries.extend(result)
+
+    return listOfAllQueries
+
+
+def get_metadata_for_lines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = None, verbose = False):
+    """
+        Collect metadata for queries in a wavelength interval.
+
+        This function prepares and runs the set of VAMDC HEAD queries (via the internal
+        parallel wrapping) for the requested wavelength interval, and returns a list of
+        metadata dictionaries for each sub-query.
+
+        Args:
+            lambdaMin : float
+                the inf boundary (in Angstrom) of the wavelength interval
+
+            lambdaMax : float
+                the sup boundary (in Angstrom) of the wavelength interval
+
+            species_dataframe : dataframe, optional
+                restrict the processing to the chemical species contained into this dataframe.
+                If None, all species are used.
+
+            nodes_dataframe : dataframe, optional
+                restrict the processing to the databases (VAMDC nodes) contained into this dataframe.
+                If None, all nodes that have species are used.
+
+            verbose : boolean, optional
+                If True, display verbose logs.
+
+        Returns:
+            metadata_list : list
+                A list of dictionaries, one per sub-query, where each dictionary contains:
+                    - 'query': the query URL/string that will be executed
+                    - 'response': the HEAD response metadata (as stored on the VamdcQuery instance)
+        """
+    listOfAllQueries = build_and_run_wrappings(lambdaMin, lambdaMax, species_dataframe, nodes_dataframe, verbose, True)
+
+    # build list of dictionaries with keys 'query' and 'response'
+    metadata_list = []
+    for currentQuery in listOfAllQueries:
+        metadata_list.append({
+            "query": currentQuery.vamdcCall,
+            "response": currentQuery.head_response_json
+        })
+
+    return metadata_list
+
+
+
+
+def getLines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = None, verbose = False, acceptTruncation = False):
     """
     Extract all the spectroscopic lines in a given wavelenght interval. 
 
@@ -211,46 +306,7 @@ def getLines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = N
             A dictionary containing the extracted lines for molecular species, grouped by databases. The keys of this dictionary is the database 
             identifier (nodeIdentifier) and the value is a datafrale containing the spectroscopic lines extracted from that database.
     """
-    # if the provided species_dataframe is not provided, we build it by taking all the species
-    if species_dataframe is None:
-        species_dataframe , _ = species.getAllSpecies()
-
-    # if the provided node_dataframe is None
-    if nodes_dataframe is None:
-        nodes_dataframe = species.getNodeHavingSpecies()
-    
-    # Getting the list of the nodes passed as argument
-    selectedNodeList = nodes_dataframe["ivoIdentifier"].to_list()
-
-    # fitler the list of species by selecting only the node from the selectedNodeList
-    filtered_species_df = species_dataframe[species_dataframe["ivoIdentifier"].isin(selectedNodeList)]
-
-    # Let us split the dataFrame, grouping by nodes
-    df_list = [group for _, group in filtered_species_df.groupby('tapEndpoint')]
-
-    # defining the list for storing the instances of the query wrapping
-    wrappingInstances = []
-
-    # Loop over the list of dataFrame, for each element we create an instance of the wrapper to be added to the list of wrapping
-    for current_df in df_list:
-        instance = _VAMDCQueryParallelWrapping(current_df, lambdaMin, lambdaMax, verbose)
-        wrappingInstances.append(instance)
-    
-    # We define the number of parallel processes, one for each wrapping instance
-    NbOfProcesses = len(wrappingInstances)
-
-    # we launch the parallel processing using the wrapper objects
-    # we will have a process for each datanode
-    with multiprocessing.Pool(processes=NbOfProcesses) as pool:
-        # Apply the process_instance function to each instance and get the results
-        results = pool.map(_process_instance, wrappingInstances)
-
-     # defining an empty list, which will be used to store all the VamdcQuery instances returned by the parallel process
-    listOfAllQueries = []
-
-    for result in results:
-        listOfAllQueries.extend(result)
-
+    listOfAllQueries = build_and_run_wrappings(lambdaMin, lambdaMax, species_dataframe, nodes_dataframe, verbose, acceptTruncation)
 
     print("total amount of sub-queries to be submitted "+str(len(listOfAllQueries)))
 
@@ -293,7 +349,3 @@ def getLines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = N
 
     # we return the two dictionaries
     return atomic_results_dict, molecular_results_dict
-
-
-
-
