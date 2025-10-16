@@ -17,7 +17,7 @@ import logging
 from logging import Logger
 
 # Import the filters module
-from pyVAMDC.spectral.filters import filters
+from pyVAMDC.spectral import filters
 
 LOGGER = logging.getLogger(__name__)
 class speciesByAstronomicalDomains(Enum):
