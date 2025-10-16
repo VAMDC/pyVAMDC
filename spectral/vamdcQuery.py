@@ -128,6 +128,7 @@ class VamdcQuery:
       self.verbose = verbose
       self.acceptTruncation = acceptTruncation
       self.head_response_json = None
+      self.counts = {}
 
       self.localUUID = str(uuid.uuid4())
 
@@ -145,7 +146,12 @@ class VamdcQuery:
           headers_json = {key: value for key, value in response.headers.items()}
           self.head_response_json = json.dumps(headers_json, indent=2)
           print(self.head_response_json)
-            
+          self.counts = {
+              key.lower(): value
+              for key, value in response.headers.items()
+              if key.lower().startswith("vamdc-")
+          }
+
           if response.status_code == 200:
               self.hasData = True
                
