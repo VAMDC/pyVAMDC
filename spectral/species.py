@@ -597,9 +597,9 @@ def generate_molecule_image(inchi, image_path_and_name, size=(300, 300)):
         # Save the molecule image to a file
         mol_image.save(image_path_and_name)
     except Exception as error:
-         print("Exception in converting the InChI:" + str(inchi))
-         print(error)
-         mol_image = None
-    finally:
-        return mol_image
+        print("Exception in converting the InChI:" + str(inchi))
+        print(error)
+        mol_image = None
+
+    return mol_image
 
