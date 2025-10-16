@@ -263,7 +263,7 @@ def get_metadata_for_lines(lambdaMin, lambdaMax, species_dataframe = None, nodes
     for currentQuery in listOfAllQueries:
         metadata_list.append({
             "query": currentQuery.vamdcCall,
-            "response": currentQuery.head_response_json
+            "metadata": currentQuery.counts
         })
 
     return metadata_list

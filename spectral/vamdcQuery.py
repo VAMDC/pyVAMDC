@@ -127,7 +127,6 @@ class VamdcQuery:
       self.localUUID = None
       self.verbose = verbose
       self.acceptTruncation = acceptTruncation
-      self.head_response_json = None
       self.counts = {}
 
       self.localUUID = str(uuid.uuid4())
@@ -144,8 +143,6 @@ class VamdcQuery:
       try:
           response = requests.head(self.vamdcCall, headers=headers)
           headers_json = {key: value for key, value in response.headers.items()}
-          self.head_response_json = json.dumps(headers_json, indent=2)
-          print(self.head_response_json)
           self.counts = {
               key.lower(): value
               for key, value in response.headers.items()
@@ -288,19 +285,19 @@ class VamdcQuery:
 
 
 
-# def main():
-#     node = "http://topbase.obspm.fr/12.07/vamdc/tap/"
-#     inchi="DONWDOGXJBIXRQ-UHFFFAOYSA-N"
-#     lambda_min = 0
-#     lambda_max = 90009076900
-#     totalListOfQueries = []
-#     speciesType = "molecule"
-#     VamdcQuery(nodeEndpoint=node, lambdaMin=lambda_min, lambdaMax=lambda_max, InchiKey=inchi, totalListOfQueries=totalListOfQueries, speciesType=speciesType, verbose = True, acceptTruncation=True),
-#     #totalListOfQueries[0].getXSAMSData()
-#     #totalListOfQueries[0].convertToDataFrame()
-#     #print(totalListOfQueries[0].lines_df)
+def main():
+    node = "http://topbase.obspm.fr/12.07/vamdc/tap/"
+    inchi="DONWDOGXJBIXRQ-UHFFFAOYSA-N"
+    lambda_min = 0
+    lambda_max = 90009076900
+    totalListOfQueries = []
+    speciesType = "molecule"
+    VamdcQuery(nodeEndpoint=node, lambdaMin=lambda_min, lambdaMax=lambda_max, InchiKey=inchi, totalListOfQueries=totalListOfQueries, speciesType=speciesType, verbose = True, acceptTruncation=True),
+    #totalListOfQueries[0].getXSAMSData()
+    #totalListOfQueries[0].convertToDataFrame()
+    #print(totalListOfQueries[0].lines_df)
 
 
 
-# if __name__ == "__main__":
-#     main()
+if __name__ == "__main__":
+    main()
