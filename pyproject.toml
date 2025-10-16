@@ -50,7 +50,7 @@ docs = [
 ]
 
 [project.scripts]
-vamdc = "spectral.cli:cli"
+vamdc = "pyVAMDC.spectral.cli:cli"
 
 [project.urls]
 Homepage = "https://github.com/VAMDC/pyVAMDC"

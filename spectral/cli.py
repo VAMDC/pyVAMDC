@@ -12,8 +12,14 @@ from typing import Optional, Dict, Any
 import click
 import pandas as pd
 
-from spectral import species, lines
-from spectral.energyConverter import electromagnetic_conversion
+try:
+    # Try relative imports first (when run as module)
+    from spectral import species, lines
+    from spectral.energyConverter import electromagnetic_conversion
+except ImportError:
+    # Fall back to absolute imports (when run as console script)
+    from pyVAMDC.spectral import species, lines
+    from pyVAMDC.spectral.energyConverter import electromagnetic_conversion
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
