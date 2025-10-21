@@ -202,7 +202,7 @@ def _build_and_run_wrappings(lambdaMin, lambdaMax, species_dataframe, nodes_data
 
     # Loop over the list of dataFrame, for each element we create an instance of the wrapper to be added to the list of wrapping
     for current_df in df_list:
-        instance = _VAMDCQueryParallelWrapping(current_df, lambdaMin, lambdaMax, verbose, acceptTruncation)
+        instance = _VAMDCQueryParallelWrapping(current_df, lambdaMin, lambdaMax, verbose, accept_truncation)
 
         wrappingInstances.append(instance) 
     
@@ -256,7 +256,7 @@ def get_metadata_for_lines(lambdaMin, lambdaMax, species_dataframe = None, nodes
                     - 'query': the query URL/string that will be executed
                     - 'response': the HEAD response metadata (as stored on the VamdcQuery instance)
         """
-    listOfAllQueries = build_and_run_wrappings(lambdaMin, lambdaMax, species_dataframe, nodes_dataframe, verbose, True)
+    listOfAllQueries = _build_and_run_wrappings(lambdaMin, lambdaMax, species_dataframe, nodes_dataframe, verbose, True)
 
     # build list of dictionaries with keys 'query' and 'response'
     metadata_list = []
@@ -306,7 +306,7 @@ def getLines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = N
             A dictionary containing the extracted lines for molecular species, grouped by databases. The keys of this dictionary is the database 
             identifier (nodeIdentifier) and the value is a datafrale containing the spectroscopic lines extracted from that database.
     """
-    listOfAllQueries = build_and_run_wrappings(lambdaMin, lambdaMax, species_dataframe, nodes_dataframe, verbose, acceptTruncation)
+    listOfAllQueries = _build_and_run_wrappings(lambdaMin, lambdaMax, species_dataframe, nodes_dataframe, verbose, acceptTruncation)
 
     print("total amount of sub-queries to be submitted "+str(len(listOfAllQueries)))
 
