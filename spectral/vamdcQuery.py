@@ -255,11 +255,11 @@ class VamdcQuery:
           parent_dir = script_path.parent.parent
 
           # Load the XSL file, according to the type of transormation needed 
-          #if self.speciesType == "atom":
-          #xslt_doc = ET.parse(str(parent_dir)+"/xsl/atomicxsams2html.xsl")
+          if self.speciesType == "atom":
+            xslt_doc = ET.parse(str(parent_dir)+"/xsl/atomicxsams2html.xsl")
 
-          #if self.speciesType == "molecule":
-          xslt_doc = ET.parse(str(parent_dir)+"/xsl/molecularxsams2html.xsl")
+          if self.speciesType == "molecule":
+            xslt_doc = ET.parse(str(parent_dir)+"/xsl/molecularxsams2html.xsl")
 
           transform = ET.XSLT(xslt_doc)
 
@@ -285,19 +285,19 @@ class VamdcQuery:
 
 
 
-def main():
-    node = "http://topbase.obspm.fr/12.07/vamdc/tap/"
-    inchi="DONWDOGXJBIXRQ-UHFFFAOYSA-N"
-    lambda_min = 0
-    lambda_max = 90009076900
-    totalListOfQueries = []
-    speciesType = "molecule"
-    VamdcQuery(nodeEndpoint=node, lambdaMin=lambda_min, lambdaMax=lambda_max, InchiKey=inchi, totalListOfQueries=totalListOfQueries, speciesType=speciesType, verbose = True, acceptTruncation=True),
-    #totalListOfQueries[0].getXSAMSData()
-    #totalListOfQueries[0].convertToDataFrame()
-    #print(totalListOfQueries[0].lines_df)
+# def main():
+#     node = "http://topbase.obspm.fr/12.07/vamdc/tap/"
+#     inchi="DONWDOGXJBIXRQ-UHFFFAOYSA-N"
+#     lambda_min = 0
+#     lambda_max = 90009076900
+#     totalListOfQueries = []
+#     speciesType = "molecule"
+#     VamdcQuery(nodeEndpoint=node, lambdaMin=lambda_min, lambdaMax=lambda_max, InchiKey=inchi, totalListOfQueries=totalListOfQueries, speciesType=speciesType, verbose = True, acceptTruncation=True),
+#     #totalListOfQueries[0].getXSAMSData()
+#     #totalListOfQueries[0].convertToDataFrame()
+#     #print(totalListOfQueries[0].lines_df)
 
 
 
-if __name__ == "__main__":
-    main()
+# if __name__ == "__main__":
+#     main()
