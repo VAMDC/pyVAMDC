@@ -58,9 +58,6 @@ Documentation = "https://pyvamdc.readthedocs.io"
 Repository = "https://github.com/VAMDC/pyVAMDC.git"
 Issues = "https://github.com/VAMDC/pyVAMDC/issues"
 
-[project.scripts]
-vamdc = "pyVAMDC.cli:main"
-
 [tool.setuptools]
 packages = ["pyVAMDC", "pyVAMDC.spectral"]
 
