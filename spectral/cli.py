@@ -155,6 +155,14 @@ def resolve_node_and_species(
     row = node_candidates.iloc[0]
     endpoint = row["tapEndpoint"]
     species_type = row["speciesType"]
+
+    # Check if endpoint is valid (not NaN or empty)
+    if pd.isna(endpoint) or endpoint == "":
+        raise ValueError(
+            f"Node '{node_hint}' for species '{inchikey}' has no TAP endpoint configured. "
+            f"This node may not support data queries."
+        )
+
     if species_type not in {"atom", "molecule"}:
         raise ValueError(f"Unsupported species type '{species_type}' for lines retrieval.")
     return endpoint, species_type
@@ -432,21 +440,31 @@ def count_lines(ctx: click.Context, inchikey: str, node: str, lambda_min: float,
         species_df, nodes_df = load_species_data()
 
         # Resolve node and species type
-        node_endpoint, species_type = resolve_node_and_species(
-            inchikey, node, species_df, nodes_df
-        )
+        try:
+            node_endpoint, species_type = resolve_node_and_species(
+                inchikey, node, species_df, nodes_df
+            )
+        except Exception as e:
+            click.echo(f"Error resolving node: {e}", err=True)
+            raise
+
+        click.echo(f"Resolved node: {node_endpoint}, species type: {species_type}", err=True)
 
         # Build queries (HEAD requests only, stored in query.counts)
         queries = []
-        vamdcQuery.VamdcQuery(
-            nodeEndpoint=node_endpoint,
-            lambdaMin=lambda_min,
-            lambdaMax=lambda_max,
-            InchiKey=inchikey,
-            speciesType=species_type,
-            totalListOfQueries=queries,
-            verbose=ctx.obj.get('verbose', False),
-        )
+        try:
+            vamdcQuery.VamdcQuery(
+                nodeEndpoint=node_endpoint,
+                lambdaMin=lambda_min,
+                lambdaMax=lambda_max,
+                InchiKey=inchikey,
+                speciesType=species_type,
+                totalListOfQueries=queries,
+                verbose=ctx.obj.get('verbose', False),
+            )
+        except Exception as e:
+            click.echo(f"Error creating query: {e}", err=True)
+            raise
 
         if not queries:
             click.echo("No matching data were found for the specified criteria.")
@@ -462,9 +480,12 @@ def count_lines(ctx: click.Context, inchikey: str, node: str, lambda_min: float,
             if query.counts:
                 for key, value in sorted(query.counts.items()):
                     click.echo(f"  {key}: {value}")
-                    numeric = coerce_numeric(value)
-                    if numeric is not None:
-                        aggregated_counts[key] = aggregated_counts.get(key, 0.0) + numeric
+                    try:
+                        numeric = coerce_numeric(value)
+                        if numeric is not None:
+                            aggregated_counts[key] = aggregated_counts.get(key, 0.0) + numeric
+                    except (TypeError, ValueError) as e:
+                        click.echo(f"  Warning: Could not aggregate {key}={value}: {e}", err=True)
             else:
                 click.echo("  No VAMDC count headers returned.")
 
@@ -563,13 +584,15 @@ def apply_filter(df: pd.DataFrame, filter_str: str) -> pd.DataFrame:
     return df[df[column].astype(str).str.contains(value, case=False, na=False)]
 
 
-def coerce_numeric(value: str) -> Optional[float]:
+def coerce_numeric(value) -> Optional[float]:
     """Try to convert a value to numeric."""
+    if value is None:
+        return None
     try:
         numeric = float(value)
+        return numeric
     except (TypeError, ValueError):
         return None
-    return numeric
 
 
 def format_numeric(value: float) -> str:
