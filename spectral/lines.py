@@ -305,6 +305,15 @@ def getLines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = N
         molecular_results_dict : dictionary
             A dictionary containing the extracted lines for molecular species, grouped by databases. The keys of this dictionary is the database 
             identifier (nodeIdentifier) and the value is a datafrale containing the spectroscopic lines extracted from that database.
+        
+        queries_metadata_list : list
+            A list of dictionaries, one per query in listOfAllQueries, containing metadata about each query with the following fields:
+                - 'nodeEndpoint': the VAMDC node endpoint
+                - 'lambdaMin': the minimum wavelength boundary
+                - 'lambdaMax': the maximum wavelength boundary
+                - 'InchiKey': the InChI Key identifier of the chemical species
+                - 'vamdcCall': the VAMDC query URL
+                - 'XSAMS_file_path': the path to the downloaded XSAMS file
     """
     listOfAllQueries = _build_and_run_wrappings(lambdaMin, lambdaMax, species_dataframe, nodes_dataframe, verbose, acceptTruncation)
 
@@ -321,6 +330,7 @@ def getLines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = N
     # now we build two dictionaries, one with all the molecular data-frames, the other one with atomic data-frames
     atomic_results_dict = {}
     molecular_results_dict= {}
+    queries_metadata_list = []
    
 
     # and we populate those two dictionaries by iterating over the queries that have been processed 
@@ -338,7 +348,18 @@ def getLines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = N
             if nodeIdentifier in molecular_results_dict:
                  molecular_results_dict[nodeIdentifier] = pd.concat([molecular_results_dict[nodeIdentifier], currentQuery.lines_df], ignore_index=True)
             else:
-                molecular_results_dict[nodeIdentifier] = currentQuery.lines_df 
+                molecular_results_dict[nodeIdentifier] = currentQuery.lines_df
+        
+        # Build metadata dictionary for this query
+        metadata_dict = {
+            "nodeEndpoint": currentQuery.nodeEndpoint,
+            "lambdaMin": currentQuery.lambdaMin,
+            "lambdaMax": currentQuery.lambdaMax,
+            "InchiKey": currentQuery.InchiKey,
+            "vamdcCall": currentQuery.vamdcCall,
+            "XSAMS_file_path": currentQuery.XSAMSFileName
+        }
+        queries_metadata_list.append(metadata_dict)
     
     
     if not(atomic_results_dict) :
@@ -347,5 +368,5 @@ def getLines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = N
     if not(molecular_results_dict):
         print("no molecular data to fetch")
 
-    # we return the two dictionaries
-    return atomic_results_dict, molecular_results_dict
+    # we return the three results: atomic, molecular dictionaries and queries metadata list
+    return atomic_results_dict, molecular_results_dict, queries_metadata_list

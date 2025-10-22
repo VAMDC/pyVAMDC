@@ -249,15 +249,47 @@ vamdc get lines \
 
 ### `vamdc count lines` ⭐ ENHANCED
 
-Inspect HEAD metadata for spectroscopic line queries without downloading full data. Supports multiple species and multiple nodes.
+Inspect HEAD metadata for spectroscopic line queries without downloading full data. Supports multiple species and multiple nodes. **Species and node filters are optional** – if not specified, all species across all nodes are queried.
 
 **Options:**
-- `--inchikey TEXT`: InChIKey of the species (**can be specified multiple times**)
-- `--node TEXT`: Node identifier (**can be specified multiple times**)
+- `--inchikey TEXT`: InChIKey of the species (**can be specified multiple times**, optional)
+- `--node TEXT`: Node identifier (**can be specified multiple times**, optional)
 - `--lambda-min FLOAT`: Minimum wavelength in Angstrom (default: 0.0)
 - `--lambda-max FLOAT`: Maximum wavelength in Angstrom (default: 1.0e9)
 
+**Use cases:**
+- Query all available species across all nodes in a wavelength range
+- Query specific species only (filter by `--inchikey`)
+- Query specific nodes only (filter by `--node`)
+- Query specific species from specific nodes (both filters)
+
 **Examples:**
+
+#### Query all species across all nodes
+```bash
+# Get metadata for all data in a wavelength range
+vamdc count lines \
+  --lambda-min=0 \
+  --lambda-max=90009076900
+```
+
+#### Query all nodes for a specific species
+```bash
+# Get metadata for a species from all nodes that have it
+vamdc count lines \
+  --inchikey=DONWDOGXJBIXRQ-UHFFFAOYSA-N \
+  --lambda-min=0 \
+  --lambda-max=90009076900
+```
+
+#### Query all species from a specific node
+```bash
+# Get metadata for all species from a specific node
+vamdc count lines \
+  --node="http://topbase.obspm.fr/12.07/vamdc/tap//" \
+  --lambda-min=0 \
+  --lambda-max=90009076900
+```
 
 #### Single species, single node
 ```bash
@@ -268,14 +300,11 @@ vamdc count lines \
   --lambda-max=90009076900
 ```
 
-**Sample output:**
+**Sample output (all species, all nodes):**
 ```
 Inspecting metadata for spectral lines...
 Wavelength range: 0.0 - 90009076900.0 Angstrom
-Filtering for 1 species...
-Found 6 species entries matching InChIKeys
-Filtering for 1 nodes...
-Found 1 nodes matching identifiers
+No species or node filters provided; querying all species across all nodes.
 Fetching metadata (HEAD requests only)...
 
 Sub-query 1: http://topbase.obspm.fr/12.07/vamdc/tap//sync?LANG=VSS2&REQUEST=doQuery...
@@ -454,6 +483,18 @@ vamdc get lines \
   --format csv \
   --output ca_lines.csv \
   --accept-truncation
+```
+
+### Explore data availability across all sources
+
+```bash
+# Check how much data is available in a wavelength range (no filters)
+vamdc count lines \
+  --lambda-min=1000 \
+  --lambda-max=2000
+
+# This queries all species from all nodes without filtering
+# Useful for understanding data coverage across the entire VAMDC infrastructure
 ```
 
 ### Query multiple species simultaneously

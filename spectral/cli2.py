@@ -314,7 +314,7 @@ def lines(ctx: click.Context, inchikey: tuple, node: tuple, lambda_min: float,
 
         # Call the high-level getLines function
         click.echo("Fetching lines...", err=True)
-        atomic_dict, molecular_dict = lines_module.getLines(
+        atomic_dict, molecular_dict, queries_metadata = lines_module.getLines(
             lambdaMin=lambda_min,
             lambdaMax=lambda_max,
             species_dataframe=filtered_species_df,
@@ -325,23 +325,14 @@ def lines(ctx: click.Context, inchikey: tuple, node: tuple, lambda_min: float,
 
         # Handle XSAMS format output
         if format == 'xsams':
-            # For XSAMS format, we need to access the query objects from getLines
-            # Since getLines() doesn't return the query objects, we need to use a different approach
-            # We'll call _build_and_run_wrappings directly and then download XSAMS files
-            click.echo("Retrieving XSAMS files...", err=True)
-            
-            queries = lines_module._build_and_run_wrappings(
-                lambda_min, lambda_max, filtered_species_df, filtered_nodes_df,
-                ctx.obj.get('verbose', False), accept_truncation
-            )
-            
-            click.echo(f"Downloading {len(queries)} XSAMS file(s)...", err=True)
+            # For XSAMS format, use the XSAMS file paths already downloaded by getLines()
+            click.echo("Processing XSAMS files...", err=True)
             
             xsams_files = []
-            for query in queries:
-                query.getXSAMSData()
-                if query.XSAMSFileName:
-                    xsams_files.append(query.XSAMSFileName)
+            for metadata_entry in queries_metadata:
+                xsams_file_path = metadata_entry.get('XSAMS_file_path')
+                if xsams_file_path:
+                    xsams_files.append(xsams_file_path)
             
             # Determine output directory: user-specified or cache directory
             if output:
@@ -424,8 +415,8 @@ def count():
 
 
 @count.command(name='lines')
-@click.option('--inchikey', multiple=True, help='InChIKey of the species (can be specified multiple times)')
-@click.option('--node', multiple=True, help='Node identifier (shortname, IVO ID, or TAP endpoint, can be specified multiple times)')
+@click.option('--inchikey', multiple=True, help='InChIKey of the species (can be specified multiple times). If not specified, all species are included.')
+@click.option('--node', multiple=True, help='Node identifier (shortname, IVO ID, or TAP endpoint, can be specified multiple times). If not specified, all nodes are included.')
 @click.option('--lambda-min', type=float, default=DEFAULT_LAMBDA_MIN,
               help=f'Minimum wavelength in Angstrom (default: {DEFAULT_LAMBDA_MIN:g})')
 @click.option('--lambda-max', type=float, default=DEFAULT_LAMBDA_MAX,
@@ -434,13 +425,26 @@ def count():
 def count_lines(ctx: click.Context, inchikey: tuple, node: tuple, lambda_min: float, lambda_max: float):
     """Inspect HEAD metadata for spectroscopic line queries without downloading data.
 
-    This command uses the high-level get_metadata_for_lines wrapper, which supports
-    multiple species and multiple nodes in a single query.
+    This command queries HEAD metadata from VAMDC nodes for spectral lines in a wavelength range.
+    Species and node filters are optional; if not specified, all species and nodes are queried.
 
     Example:
+        # Query all species across all nodes in a wavelength range
+        vamdc count lines --lambda-min=3000 --lambda-max=5000
+        
+        # Query specific species only
         vamdc count lines --inchikey=LFQSCWFLJHTTHZ-UHFFFAOYSA-N --lambda-min=3000 --lambda-max=5000
+        
+        # Query multiple species
         vamdc count lines --inchikey=LFQSCWFLJHTTHZ-UHFFFAOYSA-N --inchikey=UGFAIRIUMAVXCW-UHFFFAOYSA-N \\
-                          --node=basecol --node=cdms --lambda-min=3000 --lambda-max=5000
+                          --lambda-min=3000 --lambda-max=5000
+        
+        # Query specific nodes only
+        vamdc count lines --node=basecol --node=cdms --lambda-min=3000 --lambda-max=5000
+        
+        # Query specific species from specific nodes
+        vamdc count lines --inchikey=LFQSCWFLJHTTHZ-UHFFFAOYSA-N --node=basecol \\
+                          --lambda-min=3000 --lambda-max=5000
     """
     try:
         if lambda_max <= lambda_min:
@@ -449,28 +453,32 @@ def count_lines(ctx: click.Context, inchikey: tuple, node: tuple, lambda_min: fl
         click.echo(f"Inspecting metadata for spectral lines...", err=True)
         click.echo(f"Wavelength range: {lambda_min} - {lambda_max} Angstrom", err=True)
 
-        # Load species and nodes data
-        species_df, nodes_df = load_species_data()
-
-        # Filter by InChIKeys if provided
+        # Load species and nodes data (only if filtering is needed)
         filtered_species_df = None
-        if inchikey:
-            click.echo(f"Filtering for {len(inchikey)} species...", err=True)
-            filtered_species_df = filter_species_by_inchikeys(species_df, list(inchikey))
-            if filtered_species_df.empty:
-                click.echo("No matching species found for the provided InChIKeys.", err=True)
-                sys.exit(1)
-            click.echo(f"Found {len(filtered_species_df)} species entries matching InChIKeys", err=True)
-
-        # Filter by node identifiers if provided
         filtered_nodes_df = None
-        if node:
-            click.echo(f"Filtering for {len(node)} nodes...", err=True)
-            filtered_nodes_df = filter_nodes_by_identifiers(nodes_df, list(node))
-            if filtered_nodes_df.empty:
-                click.echo("No matching nodes found for the provided identifiers.", err=True)
-                sys.exit(1)
-            click.echo(f"Found {len(filtered_nodes_df)} nodes matching identifiers", err=True)
+        
+        if inchikey or node:
+            species_df, nodes_df = load_species_data()
+
+            # Filter by InChIKeys if provided
+            if inchikey:
+                click.echo(f"Filtering for {len(inchikey)} species...", err=True)
+                filtered_species_df = filter_species_by_inchikeys(species_df, list(inchikey))
+                if filtered_species_df.empty:
+                    click.echo("No matching species found for the provided InChIKeys.", err=True)
+                    sys.exit(1)
+                click.echo(f"Found {len(filtered_species_df)} species entries matching InChIKeys", err=True)
+
+            # Filter by node identifiers if provided
+            if node:
+                click.echo(f"Filtering for {len(node)} nodes...", err=True)
+                filtered_nodes_df = filter_nodes_by_identifiers(nodes_df, list(node))
+                if filtered_nodes_df.empty:
+                    click.echo("No matching nodes found for the provided identifiers.", err=True)
+                    sys.exit(1)
+                click.echo(f"Found {len(filtered_nodes_df)} nodes matching identifiers", err=True)
+        else:
+            click.echo("No species or node filters provided; querying all species across all nodes.", err=True)
 
         # Call the high-level get_metadata_for_lines function
         click.echo("Fetching metadata (HEAD requests only)...", err=True)
