@@ -113,8 +113,122 @@ def load_species_data(force_refresh: bool = False) -> Tuple[pd.DataFrame, pd.Dat
     return species_df, nodes_df
 
 
-def filter_species_by_inchikeys(species_df: pd.DataFrame, inchikeys: list) -> pd.DataFrame:
-    """Filter species dataframe by one or more InChIKeys."""
+
+
+
+def resolve_node_identifier(
+    node_hint: str, species_df: pd.DataFrame, nodes_df: pd.DataFrame
+) -> str:
+    """
+    Resolve a node identifier (short name, IVO ID, or TAP endpoint) to a full TAP endpoint.
+    Uses 4-step matching strategy: TAP endpoint → IVO identifier → short name → nodes table.
+    
+    Args:
+        node_hint: User-provided node identifier (e.g., "cdms", "ivo://vamdc/...", or full URL)
+        species_df: DataFrame containing species with node metadata
+        nodes_df: DataFrame containing node information
+    
+    Returns:
+        Full TAP endpoint URL
+    
+    Raises:
+        ValueError: If node cannot be resolved
+    """
+    normalized_hint = node_hint.strip().lower()
+
+    # Step 1: Try exact TAP endpoint match in species dataframe
+    node_candidates = species_df[
+        species_df["tapEndpoint"].astype(str).str.lower() == normalized_hint
+    ]
+    
+    # Step 2: Try IVO identifier match in species dataframe
+    if node_candidates.empty:
+        node_candidates = species_df[
+            species_df["ivoIdentifier"].astype(str).str.lower() == normalized_hint
+        ]
+    
+    # Step 3: Try short name match in species dataframe (if available)
+    if node_candidates.empty and "shortname" in species_df.columns:
+        node_candidates = species_df[
+            species_df["shortname"].astype(str).str.lower() == normalized_hint
+        ]
+    
+    # Step 4: Try matching against nodes table
+    if node_candidates.empty:
+        node_candidates = match_against_node_table(species_df, nodes_df, normalized_hint)
+    
+    if node_candidates.empty:
+        raise ValueError(
+            f"No node matching '{node_hint}' was found. "
+            f"Try using a full TAP endpoint URL, short name (e.g., 'cdms'), or IVO identifier."
+        )
+    
+    # Return the first matching endpoint
+    endpoint = node_candidates.iloc[0]["tapEndpoint"]
+    
+    # Validate endpoint
+    if pd.isna(endpoint) or endpoint == "":
+        raise ValueError(
+            f"Node '{node_hint}' has no TAP endpoint configured. "
+            f"This node may not support data queries."
+        )
+    
+    return str(endpoint)
+
+
+def match_against_node_table(
+    species_df: pd.DataFrame, nodes_df: pd.DataFrame, normalized_hint: str
+) -> pd.DataFrame:
+    """
+    Match node hint against nodes table and return matching species.
+    
+    This is a fallback matching strategy when direct species dataframe matching fails.
+    It checks the full nodes table for the identifier and returns species using those nodes.
+    
+    Args:
+        species_df: DataFrame containing species information
+        nodes_df: DataFrame containing node metadata
+        normalized_hint: Lowercase node identifier to match
+    
+    Returns:
+        DataFrame with matching species rows
+    """
+    candidate_nodes = pd.DataFrame()
+    
+    if not nodes_df.empty:
+        tap_match = nodes_df["tapEndpoint"].astype(str).str.lower() == normalized_hint
+        ivo_match = nodes_df["ivoIdentifier"].astype(str).str.lower() == normalized_hint
+        node_mask = tap_match | ivo_match
+        
+        # Include short name matching if available
+        if "shortName" in nodes_df.columns:
+            short_match = nodes_df["shortName"].astype(str).str.lower() == normalized_hint
+            node_mask = node_mask | short_match
+        
+        matching_nodes = nodes_df[node_mask]
+        
+        if not matching_nodes.empty:
+            endpoints = matching_nodes["tapEndpoint"].str.lower().tolist()
+            candidate_nodes = species_df[
+                species_df["tapEndpoint"].str.lower().isin(endpoints)
+            ]
+    
+    return candidate_nodes
+
+
+def filter_species_by_inchikeys_resolved(
+    inchikeys: list, species_df: pd.DataFrame
+) -> pd.DataFrame:
+    """
+    Filter species dataframe by one or more InChIKeys with resolution.
+    
+    Args:
+        inchikeys: List of InChIKey strings
+        species_df: Species dataframe to filter
+    
+    Returns:
+        Filtered species dataframe
+    """
     if not inchikeys:
         return species_df
     
@@ -123,24 +237,42 @@ def filter_species_by_inchikeys(species_df: pd.DataFrame, inchikeys: list) -> pd
     return species_df[inchikey_series.isin(normalized_keys)]
 
 
-def filter_nodes_by_identifiers(nodes_df: pd.DataFrame, node_identifiers: list) -> pd.DataFrame:
-    """Filter nodes dataframe by one or more node identifiers (shortname, IVO ID, or TAP endpoint)."""
+def filter_nodes_by_identifiers_resolved(
+    node_identifiers: list, species_df: pd.DataFrame, nodes_df: pd.DataFrame
+) -> pd.DataFrame:
+    """
+    Filter nodes dataframe by one or more node identifiers with intelligent resolution.
+    
+    This function resolves each node identifier to a full TAP endpoint, then returns
+    all matching species entries. This enables support for short names, IVO identifiers,
+    and full endpoints, just like CLI.py.
+    
+    Args:
+        node_identifiers: List of node identifiers (shortname, IVO ID, or TAP endpoint)
+        species_df: Species dataframe containing node information
+        nodes_df: Nodes dataframe for fallback matching
+    
+    Returns:
+        Filtered species dataframe containing all species from matching nodes
+    
+    Raises:
+        ValueError: If any node identifier cannot be resolved
+    """
     if not node_identifiers:
-        return nodes_df
+        return species_df
     
-    normalized_ids = [nid.strip().lower() for nid in node_identifiers]
-    mask = pd.Series([False] * len(nodes_df))
+    resolved_endpoints = []
     
-    for nid in normalized_ids:
-        tap_match = nodes_df["tapEndpoint"].astype(str).str.lower() == nid
-        ivo_match = nodes_df["ivoIdentifier"].astype(str).str.lower() == nid
-        mask = mask | tap_match | ivo_match
-        
-        if "shortName" in nodes_df.columns:
-            short_match = nodes_df["shortName"].astype(str).str.lower() == nid
-            mask = mask | short_match
+    for node_id in node_identifiers:
+        try:
+            endpoint = resolve_node_identifier(node_id, species_df, nodes_df)
+            resolved_endpoints.append(endpoint.lower())
+        except ValueError as e:
+            raise ValueError(f"Failed to resolve node '{node_id}': {str(e)}")
     
-    return nodes_df[mask]
+    # Return species that use any of the resolved endpoints
+    endpoint_series = species_df["tapEndpoint"].astype(str).str.lower()
+    return species_df[endpoint_series.isin(resolved_endpoints)]
 
 
 @click.group()
@@ -296,21 +428,37 @@ def lines(ctx: click.Context, inchikey: tuple, node: tuple, lambda_min: float,
         filtered_species_df = None
         if inchikey:
             click.echo(f"Filtering for {len(inchikey)} species...", err=True)
-            filtered_species_df = filter_species_by_inchikeys(species_df, list(inchikey))
+            filtered_species_df = filter_species_by_inchikeys_resolved(list(inchikey), species_df)
             if filtered_species_df.empty:
                 click.echo("No matching species found for the provided InChIKeys.", err=True)
                 sys.exit(1)
             click.echo(f"Found {len(filtered_species_df)} species entries matching InChIKeys", err=True)
 
-        # Filter by node identifiers if provided
+        # Filter by node identifiers if provided (with intelligent resolution)
         filtered_nodes_df = None
         if node:
-            click.echo(f"Filtering for {len(node)} nodes...", err=True)
-            filtered_nodes_df = filter_nodes_by_identifiers(nodes_df, list(node))
-            if filtered_nodes_df.empty:
-                click.echo("No matching nodes found for the provided identifiers.", err=True)
+            click.echo(f"Resolving {len(node)} node identifier(s)...", err=True)
+            try:
+                filtered_species_df_by_node = filter_nodes_by_identifiers_resolved(
+                    list(node), species_df, nodes_df
+                )
+                if filtered_species_df_by_node.empty:
+                    click.echo("No matching nodes found for the provided identifiers.", err=True)
+                    sys.exit(1)
+                click.echo(f"Resolved nodes, found species from {filtered_species_df_by_node['tapEndpoint'].nunique()} node(s)", err=True)
+                
+                # If we already filtered by inchikey, intersect the two filters
+                if filtered_species_df is not None:
+                    filtered_species_df = filtered_species_df.merge(
+                        filtered_species_df_by_node[['tapEndpoint', 'InChIKey']].drop_duplicates(),
+                        on=['tapEndpoint', 'InChIKey'],
+                        how='inner'
+                    )
+                else:
+                    filtered_species_df = filtered_species_df_by_node
+            except ValueError as e:
+                click.echo(f"Error: {e}", err=True)
                 sys.exit(1)
-            click.echo(f"Found {len(filtered_nodes_df)} nodes matching identifiers", err=True)
 
         # Call the high-level getLines function
         click.echo("Fetching lines...", err=True)
@@ -463,20 +611,36 @@ def count_lines(ctx: click.Context, inchikey: tuple, node: tuple, lambda_min: fl
             # Filter by InChIKeys if provided
             if inchikey:
                 click.echo(f"Filtering for {len(inchikey)} species...", err=True)
-                filtered_species_df = filter_species_by_inchikeys(species_df, list(inchikey))
+                filtered_species_df = filter_species_by_inchikeys_resolved(list(inchikey), species_df)
                 if filtered_species_df.empty:
                     click.echo("No matching species found for the provided InChIKeys.", err=True)
                     sys.exit(1)
                 click.echo(f"Found {len(filtered_species_df)} species entries matching InChIKeys", err=True)
 
-            # Filter by node identifiers if provided
+            # Filter by node identifiers if provided (with intelligent resolution)
             if node:
-                click.echo(f"Filtering for {len(node)} nodes...", err=True)
-                filtered_nodes_df = filter_nodes_by_identifiers(nodes_df, list(node))
-                if filtered_nodes_df.empty:
-                    click.echo("No matching nodes found for the provided identifiers.", err=True)
+                click.echo(f"Resolving {len(node)} node identifier(s)...", err=True)
+                try:
+                    filtered_species_df_by_node = filter_nodes_by_identifiers_resolved(
+                        list(node), species_df, nodes_df
+                    )
+                    if filtered_species_df_by_node.empty:
+                        click.echo("No matching nodes found for the provided identifiers.", err=True)
+                        sys.exit(1)
+                    click.echo(f"Resolved nodes, found species from {filtered_species_df_by_node['tapEndpoint'].nunique()} node(s)", err=True)
+                    
+                    # If we already filtered by inchikey, intersect the two filters
+                    if filtered_species_df is not None:
+                        filtered_species_df = filtered_species_df.merge(
+                            filtered_species_df_by_node[['tapEndpoint', 'InChIKey']].drop_duplicates(),
+                            on=['tapEndpoint', 'InChIKey'],
+                            how='inner'
+                        )
+                    else:
+                        filtered_species_df = filtered_species_df_by_node
+                except ValueError as e:
+                    click.echo(f"Error: {e}", err=True)
                     sys.exit(1)
-                click.echo(f"Found {len(filtered_nodes_df)} nodes matching identifiers", err=True)
         else:
             click.echo("No species or node filters provided; querying all species across all nodes.", err=True)
 

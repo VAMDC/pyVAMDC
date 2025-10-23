@@ -47,6 +47,7 @@ vamdc
 
 ✨ **Multiple species support**: Query multiple species in one command  
 ✨ **Multiple nodes support**: Query multiple data nodes simultaneously  
+✨ **Intelligent node resolution**: Use short names, IVO IDs, or full endpoints  
 ✨ **XSAMS cache integration**: XSAMS files stored in cache by default  
 ✨ **Parallel processing**: Leverages multiprocessing for faster queries  
 ✨ **Enhanced metadata**: Added node and species_type columns to output  
@@ -132,34 +133,47 @@ Get spectral lines for one or more species from one or more nodes.
 
 **Examples:**
 
-#### Single species, single node
+#### Single species, single node (using short name)
 ```bash
-# Query calcium (Ca) from topbase
+# Query calcium (Ca) from topbase using short name
 vamdc get lines \
   --inchikey=DONWDOGXJBIXRQ-UHFFFAOYSA-N \
-  --node="http://topbase.obspm.fr/12.07/vamdc/tap//" \
+  --node=topbase \
   --lambda-min=1000 \
   --lambda-max=2000 \
   --accept-truncation
 ```
 
-#### Multiple species, single node
+#### Multiple species, single node (using short name)
 ```bash
-# Query CO and H2O from CDMS
+# Query CO and H2O from CDMS using short name
 vamdc get lines \
   --inchikey=LFQSCWFLJHTTHZ-UHFFFAOYSA-N \
   --inchikey=XLYOFNOQVPJJNP-UHFFFAOYSA-N \
-  --node="https://cdms.astro.uni-koeln.de/cdms/tap/" \
+  --node=cdms \
   --lambda-min=100000 \
   --lambda-max=200000
 ```
 
-#### Single species, multiple nodes
+#### Single species, multiple nodes (using short names)
 ```bash
-# Query CO from multiple databases
+# Query CO from multiple databases using short names
 vamdc get lines \
   --inchikey=LFQSCWFLJHTTHZ-UHFFFAOYSA-N \
-  --node="https://cdms.astro.uni-koeln.de/cdms/tap/" \
+  --node=cdms \
+  --node=jpl \
+  --node=basecol2015 \
+  --lambda-min=100000 \
+  --lambda-max=200000
+```
+
+#### Mixed identifier types (short names, IVO IDs, endpoints)
+```bash
+# Mix different identifier types in the same command
+vamdc get lines \
+  --inchikey=LFQSCWFLJHTTHZ-UHFFFAOYSA-N \
+  --node=cdms \
+  --node="ivo://vamdc/jpl/vamdc-tap_12.07" \
   --node="http://basecoltap2015.vamdc.org/12_07/TAP/" \
   --lambda-min=100000 \
   --lambda-max=200000
@@ -280,6 +294,35 @@ vamdc count lines \
   --inchikey=DONWDOGXJBIXRQ-UHFFFAOYSA-N \
   --lambda-min=0 \
   --lambda-max=90009076900
+```
+
+#### Query all species from a specific node (using short name)
+```bash
+# Get metadata for all species from a specific node
+vamdc count lines \
+  --node=topbase \
+  --lambda-min=0 \
+  --lambda-max=90009076900
+```
+
+#### Single species, single node (using short name)
+```bash
+vamdc count lines \
+  --inchikey=DONWDOGXJBIXRQ-UHFFFAOYSA-N \
+  --node=topbase \
+  --lambda-min=0 \
+  --lambda-max=90009076900
+```
+
+#### Multiple species, multiple nodes (using short names)
+```bash
+vamdc count lines \
+  --inchikey=LFQSCWFLJHTTHZ-UHFFFAOYSA-N \
+  --inchikey=XLYOFNOQVPJJNP-UHFFFAOYSA-N \
+  --node=cdms \
+  --node=jpl \
+  --lambda-min=100000 \
+  --lambda-max=200000
 ```
 
 #### Query all species from a specific node
@@ -470,14 +513,14 @@ vamdc get species --filter-by "name:Ca"
 # Step 2: Check available data (HEAD request only)
 vamdc count lines \
   --inchikey=DONWDOGXJBIXRQ-UHFFFAOYSA-N \
-  --node="http://topbase.obspm.fr/12.07/vamdc/tap//" \
+  --node=topbase \
   --lambda-min=1000 \
   --lambda-max=2000
 
-# Step 3: Download the data
+# Step 3: Download the data using short node name
 vamdc get lines \
   --inchikey=DONWDOGXJBIXRQ-UHFFFAOYSA-N \
-  --node="http://topbase.obspm.fr/12.07/vamdc/tap//" \
+  --node=topbase \
   --lambda-min=1000 \
   --lambda-max=2000 \
   --format csv \
@@ -514,28 +557,39 @@ vamdc get lines \
 ### Compare data from multiple nodes
 
 ```bash
-# Get the same species from different databases
+# Get the same species from different databases using short names
 vamdc get lines \
   --inchikey=LFQSCWFLJHTTHZ-UHFFFAOYSA-N \
-  --node="https://cdms.astro.uni-koeln.de/cdms/tap/" \
-  --node="https://cdms.astro.uni-koeln.de/jpl/tap/" \
+  --node=cdms \
+  --node=jpl \
   --lambda-min=100000 \
   --lambda-max=200000 \
   --format csv \
   --output co_comparison.csv
 
 # The output CSV includes a 'node' column to identify the source
+# You can also mix different identifier types:
+vamdc get lines \
+  --inchikey=LFQSCWFLJHTTHZ-UHFFFAOYSA-N \
+  --node=cdms \
+  --node="ivo://vamdc/jpl/vamdc-tap_12.07" \
+  --node="http://basecoltap2015.vamdc.org/12_07/TAP/" \
+  --lambda-min=100000 \
+  --lambda-max=200000 \
+  --format csv \
+  --output co_all_sources.csv
 ```
 
 ### Work with XSAMS files
 
 ```bash
-# Download XSAMS to cache
+# Download XSAMS to cache using short node name
 vamdc get lines \
   --inchikey=DONWDOGXJBIXRQ-UHFFFAOYSA-N \
-  --format xsams \
+  --node=topbase \
   --lambda-min=1000 \
   --lambda-max=2000 \
+  --format xsams \
   --accept-truncation
 
 # Check XSAMS cache status
@@ -544,36 +598,380 @@ vamdc cache status
 # Download to custom directory for archiving
 vamdc get lines \
   --inchikey=DONWDOGXJBIXRQ-UHFFFAOYSA-N \
+  --node=topbase \
   --format xsams \
   --output /archive/2025/calcium/ \
   --lambda-min=1000 \
   --lambda-max=2000 \
   --accept-truncation
+
+# Download from multiple nodes
+vamdc get lines \
+  --inchikey=DONWDOGXJBIXRQ-UHFFFAOYSA-N \
+  --node=topbase \
+  --node=chianti \
+  --format xsams \
+  --output /archive/2025/calcium/ \
+  --accept-truncation
 ```
 
-## Node Identifiers
+## Node Identifiers ⭐ ENHANCED
 
-The `--node` parameter accepts three types of identifiers:
+The `--node` parameter accepts three types of identifiers with intelligent resolution:
 
-1. **TAP endpoint** (recommended):
+### Supported Node Identifier Types
+
+1. **Short name** (most convenient):
    ```bash
-   --node="http://topbase.obspm.fr/12.07/vamdc/tap//"
-   ```
-
-2. **IVO identifier**:
-   ```bash
-   --node="ivo://vamdc/TOPbase/tap-xsams"
-   ```
-
-3. **Short name** (if available):
-   ```bash
+   --node="cdms"
+   --node="jpl"
    --node="topbase"
    ```
+   - Short, memorable identifiers for common nodes
+   - Case-insensitive matching
+   - Example: `vamdc get lines --inchikey=... --node=cdms`
 
-To find the correct identifier:
-```bash
-vamdc get nodes --format csv | grep -i "topbase"
+2. **IVO identifier** (programmatic use):
+   ```bash
+   --node="ivo://vamdc/TOPbase/tap-xsams"
+   --node="ivo://vamdc/cdms/vamdc-tap_12.07"
+   ```
+   - Full Virtual Observatory identifier
+   - Unambiguous and machine-readable
+   - Example: `vamdc get lines --inchikey=... --node="ivo://vamdc/cdms/vamdc-tap_12.07"`
+
+3. **TAP endpoint URL** (full endpoint):
+   ```bash
+   --node="http://topbase.obspm.fr/12.07/vamdc/tap//"
+   --node="https://cdms.astro.uni-koeln.de/cdms/tap/"
+   ```
+   - Complete TAP endpoint URL
+   - Most explicit identifier
+   - Example: `vamdc get lines --inchikey=... --node="https://cdms.astro.uni-koeln.de/cdms/tap/"`
+
+### Resolution Strategy
+
+CLI2 uses intelligent 4-step resolution to convert any identifier to a full TAP endpoint:
+
 ```
+Step 1: Try matching as TAP endpoint (full URL)
+  └─ If not found → continue to Step 2
+
+Step 2: Try matching as IVO identifier
+  └─ If not found → continue to Step 3
+
+Step 3: Try matching as short name
+  └─ If found → Return endpoint ✓
+
+Step 4: Try matching against nodes table (fallback)
+  └─ If not found → Raise error with helpful message
+```
+
+**Example resolution flow:**
+```
+User input: "cdms"
+├─ Step 1: Is it "https://..." URL? No
+├─ Step 2: Is it "ivo://..." ID? No
+├─ Step 3: Is it a short name "cdms"? Yes ✓
+└─ Result: "https://cdms.astro.uni-koeln.de/cdms/tap/"
+```
+
+### Finding Node Identifiers
+
+Get all available node identifiers:
+
+```bash
+# View all nodes with their identifiers
+vamdc get nodes --format csv
+
+# View specific columns
+vamdc get nodes --format csv | cut -d',' -f1,2,3
+
+# Search for a specific node (e.g., CDMS)
+vamdc get nodes --format csv | grep -i "cdms"
+```
+
+Output includes:
+- `shortName`: Short identifier (e.g., "CDMS")
+- `ivoIdentifier`: Full IVO ID (e.g., "ivo://vamdc/cdms/vamdc-tap_12.07")
+- `tapEndpoint`: Full TAP URL (e.g., "https://cdms.astro.uni-koeln.de/cdms/tap/")
+
+### Examples by Identifier Type
+
+#### Using short name (RECOMMENDED)
+```bash
+# Simple and readable
+vamdc get lines --inchikey=LFQSCWFLJHTTHZ-UHFFFAOYSA-N --node=cdms
+vamdc get lines --inchikey=DONWDOGXJBIXRQ-UHFFFAOYSA-N --node=topbase
+vamdc get lines --inchikey=XLYOFNOQVPJJNP-UHFFFAOYSA-N --node=basecol2015
+
+# Multiple nodes using short names
+vamdc get lines \
+  --inchikey=LFQSCWFLJHTTHZ-UHFFFAOYSA-N \
+  --node=cdms --node=jpl --node=basecol2015
+```
+
+#### Using IVO identifier
+```bash
+# Explicit and unambiguous
+vamdc get lines \
+  --inchikey=LFQSCWFLJHTTHZ-UHFFFAOYSA-N \
+  --node="ivo://vamdc/cdms/vamdc-tap_12.07"
+
+# Multiple nodes using IVO identifiers
+vamdc get lines \
+  --inchikey=LFQSCWFLJHTTHZ-UHFFFAOYSA-N \
+  --node="ivo://vamdc/cdms/vamdc-tap_12.07" \
+  --node="ivo://vamdc/basecol2015/vamdc-tap"
+```
+
+#### Using TAP endpoint URL
+```bash
+# Full endpoint (still works, backward compatible)
+vamdc get lines \
+  --inchikey=LFQSCWFLJHTTHZ-UHFFFAOYSA-N \
+  --node="https://cdms.astro.uni-koeln.de/cdms/tap/"
+
+# Mixed identifiers (all types work together)
+vamdc get lines \
+  --inchikey=LFQSCWFLJHTTHZ-UHFFFAOYSA-N \
+  --node=cdms \
+  --node="ivo://vamdc/jpl/vamdc-tap_12.07" \
+  --node="http://basecoltap2015.vamdc.org/12_07/TAP/"
+```
+
+### Error Handling
+
+When an invalid node identifier is provided:
+
+```bash
+# Invalid short name
+vamdc get lines --inchikey=... --node=invalid_xyz
+# Error: No node matching 'invalid_xyz' was found.
+#        Try using a full TAP endpoint URL, short name
+#        (e.g., 'cdms'), or IVO identifier.
+```
+
+To troubleshoot:
+1. List all available nodes: `vamdc get nodes`
+2. Check the short name, IVO ID, or endpoint format
+3. Verify the node has data for your species
+
+## Species Identifiers ⭐ ENHANCED
+
+The `--inchikey` parameter identifies chemical species for queries. The CLI now supports intelligent species identification with flexible matching.
+
+### Understanding InChIKey
+
+An **InChIKey** is a unique, standardized identifier for chemical substances. It's a fixed-length character string derived from the IUPAC International Chemical Identifier (InChI).
+
+**Format:**
+```
+OKTJSMMVPCPJKN-UHFFFAOYSA-N
+│                           │
+│                           └─ Protonation layer indicator
+├─ Main layer (14 chars)
+└─ First InChI layer (10 chars)
+```
+
+**Example InChIKeys:**
+- Carbon: `OKTJSMMVPCPJKN-UHFFFAOYSA-N`
+- Carbon Monoxide (CO): `LFQSCWFLJHTTHZ-UHFFFAOYSA-N`
+- Water (H₂O): `XLYOFNOQVPJJNP-UHFFFAOYSA-N`
+
+### Finding Species InChIKeys
+
+#### Method 1: Search the species database
+```bash
+# Get all species with "CO" in the name
+vamdc get species --filter-by "name:CO"
+
+# Output shows InChIKey and other properties
+InChIKey    name           formula  speciesType
+LFQSCWFLJHTTHZ-UHFFFAOYSA-N  carbon monoxide  CO  molecule
+```
+
+#### Method 2: Export and search
+```bash
+# Export full species database
+vamdc get species --format csv --output species.csv
+
+# Search for specific species
+grep -i "carbon" species.csv | head -5
+```
+
+#### Method 3: Query single species
+```bash
+# Query a specific molecule (CO) from a node
+vamdc get lines \
+  --inchikey=LFQSCWFLJHTTHZ-UHFFFAOYSA-N \
+  --node=cdms \
+  --lambda-min=100000 \
+  --lambda-max=200000
+```
+
+### Common Species InChIKeys
+
+Here are some frequently-used species:
+
+| Species | InChIKey | Type |
+|---------|----------|------|
+| Hydrogen (H) | `UFHXOROCNITJBY-UHFFFAOYSA-N` | atom |
+| Helium (He) | `SWQJXJOGLNCZEY-UHFFFAOYSA-N` | atom |
+| Carbon (C) | `OKTJSMMVPCPJKN-UHFFFAOYSA-N` | atom |
+| Nitrogen (N) | `IJDNQMJBXVCW-UHFFFAOYSA-N` | atom |
+| Oxygen (O) | `QVGXLLKGJNJLOE-UHFFFAOYSA-N` | atom |
+| Carbon Monoxide (CO) | `LFQSCWFLJHTTHZ-UHFFFAOYSA-N` | molecule |
+| Water (H₂O) | `XLYOFNOQVPJJNP-UHFFFAOYSA-N` | molecule |
+| Ammonia (NH₃) | `QGZKDVFQNNGYKY-UHFFFAOYSA-N` | molecule |
+| Methane (CH₄) | `VNWKTOKETHGBQM-UHFFFAOYSA-N` | molecule |
+
+### Species Resolution for Queries
+
+Unlike node identifiers, species are **always identified by InChIKey**. However, the CLI provides intelligent features:
+
+1. **Multiple species in one query**:
+   ```bash
+   vamdc get lines \
+     --inchikey=OKTJSMMVPCPJKN-UHFFFAOYSA-N \
+     --inchikey=LFQSCWFLJHTTHZ-UHFFFAOYSA-N \
+     --inchikey=XLYOFNOQVPJJNP-UHFFFAOYSA-N \
+     --node=cdms \
+     --lambda-min=1000 --lambda-max=10000
+   ```
+
+2. **Automatic species validation**: The CLI checks if the InChIKey exists in the database
+   ```bash
+   # Invalid InChIKey
+   vamdc get lines --inchikey=INVALID-INCHIKEY-XXX --node=cdms
+   # Error: No species with InChIKey 'INVALID-INCHIKEY-XXX' were found.
+   ```
+
+3. **Specifies available nodes for each species**: Automatically identifies which nodes have data for each species
+   ```bash
+   # The CLI internally checks which of your specified nodes have this species
+   vamdc get lines \
+     --inchikey=OKTJSMMVPCPJKN-UHFFFAOYSA-N \
+     --node=cdms --node=topbase --node=vald
+   # Queries all specified nodes that have this species
+   ```
+
+### Workflow: Find and Query Species
+
+**Step 1: Find the InChIKey**
+```bash
+# Search for a species by name or formula
+vamdc get species --filter-by "name:CO"
+
+# Find column headers
+vamdc get species --format csv | head -1
+```
+
+**Step 2: Identify available nodes**
+```bash
+# Export species info and check available nodes
+vamdc get species --format csv --output species.csv
+
+# View data for specific species
+grep "LFQSCWFLJHTTHZ-UHFFFAOYSA-N" species.csv
+
+# See which nodes have this species
+vamdc get nodes --format csv | grep -i "cdms"
+```
+
+**Step 3: Check available data**
+```bash
+# Use count_lines to see data availability
+vamdc count lines \
+  --inchikey=LFQSCWFLJHTTHZ-UHFFFAOYSA-N \
+  --node=cdms \
+  --lambda-min=1000 \
+  --lambda-max=10000
+```
+
+**Step 4: Download the data**
+```bash
+# Download spectral lines
+vamdc get lines \
+  --inchikey=LFQSCWFLJHTTHZ-UHFFFAOYSA-N \
+  --node=cdms \
+  --lambda-min=1000 \
+  --lambda-max=10000 \
+  --format csv \
+  --output co_lines.csv
+```
+
+### Combining Multiple Species and Nodes
+
+**Query multiple species from multiple nodes:**
+```bash
+# Compare CO and H2O across different databases
+vamdc get lines \
+  --inchikey=LFQSCWFLJHTTHZ-UHFFFAOYSA-N \
+  --inchikey=XLYOFNOQVPJJNP-UHFFFAOYSA-N \
+  --node=cdms \
+  --node=jpl \
+  --node=basecol2015 \
+  --lambda-min=100000 \
+  --lambda-max=200000 \
+  --format csv \
+  --output molecules.csv
+```
+
+Output CSV will include:
+- All spectral line data
+- `node` column: which database the line came from
+- `species_type` column: atom or molecule
+
+### Error Handling for Species
+
+**Invalid InChIKey format:**
+```bash
+vamdc get lines --inchikey=INVALID-KEY --node=cdms
+# Error: No species with InChIKey 'INVALID-KEY' were found.
+```
+
+**Solutions:**
+1. Check spelling with `vamdc get species --filter-by "name:..."`
+2. List all available species: `vamdc get species --format csv`
+3. Use the species database export to find exact InChIKey
+
+### Pro Tips
+
+1. **Save common InChIKeys**: Create a reference file
+   ```bash
+   cat > species_inchikeys.txt << EOF
+   # Molecules
+   CO=LFQSCWFLJHTTHZ-UHFFFAOYSA-N
+   H2O=XLYOFNOQVPJJNP-UHFFFAOYSA-N
+   NH3=QGZKDVFQNNGYKY-UHFFFAOYSA-N
+   EOF
+   ```
+
+2. **Query in a loop**:
+   ```bash
+   while read inchikey; do
+     vamdc get lines \
+       --inchikey="$inchikey" \
+       --node=cdms \
+       --lambda-min=1000 --lambda-max=10000 \
+       --format csv \
+       --output "lines_${inchikey}.csv"
+   done < species_inchikeys.txt
+   ```
+
+3. **Combine with node iteration**:
+   ```bash
+   # Query a species from all available nodes
+   for node in cdms jpl topbase basecol2015 vald chianti; do
+     vamdc get lines \
+       --inchikey=LFQSCWFLJHTTHZ-UHFFFAOYSA-N \
+       --node="$node" \
+       --lambda-min=100000 --lambda-max=200000 \
+       --format csv \
+       --output "co_${node}.csv" 2>/dev/null || echo "No data from $node"
+   done
+   ```
 
 ## Performance Tips
 

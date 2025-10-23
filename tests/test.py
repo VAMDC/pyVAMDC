@@ -57,7 +57,7 @@ def main():
     lambdaMin = 1
     lambdaMax = 100000000
 
-    atomicLines, molecularLines = getLines(lambdaMin, lambdaMax, nodes_dataframe=filtered_nodes_df, species_dataframe=species_df)
+    atomicLines, molecularLines, queries_metadata = getLines(lambdaMin, lambdaMax, nodes_dataframe=filtered_nodes_df, species_dataframe=species_df)
 
    
 
