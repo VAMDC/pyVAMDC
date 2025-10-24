@@ -1,11 +1,11 @@
-# CLI2 Test Report
+# CLI Test Report
 ## Date: 2025-10-22
 ## Environment: Python 3.12.9 
 ---
 
 ## Executive Summary
 
-All CLI2 commands have been tested and are functioning correctly according to the CLI2.md specification. The new optimization for XSAMS handling (eliminating double downloads) has been verified to work as intended. Optional filters for `count lines` are functioning properly.
+All CLI commands have been tested and are functioning correctly according to the CLI.md specification. The new optimization for XSAMS handling (eliminating double downloads) has been verified to work as intended. Optional filters for `count lines` are functioning properly.
 
 **Test Status: ✅ PASSED**
 
@@ -15,7 +15,7 @@ All CLI2 commands have been tested and are functioning correctly according to th
 
 | Command | Test | Status | Notes |
 |---------|------|--------|-------|
-| CLI Help | `python -m pyVAMDC.spectral.cli2 --help` | ✅ PASS | Main CLI interface functional |
+| CLI Help | `python -m pyVAMDC.spectral.cli --help` | ✅ PASS | Main CLI interface functional |
 | Get Nodes | `vamdc get nodes` | ✅ PASS | Retrieved 32 nodes and cached |
 | Get Species | `vamdc get species --filter-by "name:CO"` | ✅ PASS | Filter working, CO species found |
 | Get Lines (CSV) | `vamdc get lines --inchikey=... --format csv` | ✅ PASS | 1219 lines exported to CSV |
@@ -33,7 +33,7 @@ All CLI2 commands have been tested and are functioning correctly according to th
 
 **Command:**
 ```bash
-python -m pyVAMDC.spectral.cli2 --help
+python -m pyVAMDC.spectral.cli --help
 ```
 
 **Expected Output:**
@@ -41,7 +41,7 @@ python -m pyVAMDC.spectral.cli2 --help
 
 **Result:** ✅ PASS
 ```
-Usage: python -m pyVAMDC.spectral.cli2 [OPTIONS] COMMAND [ARGS]...
+Usage: python -m pyVAMDC.spectral.cli [OPTIONS] COMMAND [ARGS]...
   VAMDC CLI - Query atomic and molecular spectroscopic data.
 Commands:
   cache  Manage local cache.
@@ -60,7 +60,7 @@ Commands:
 
 **Command:**
 ```bash
-python -m pyVAMDC.spectral.cli2 get nodes
+python -m pyVAMDC.spectral.cli get nodes
 ```
 
 **Expected Output:**
@@ -86,7 +86,7 @@ Fetched 32 nodes and cached at /Users/zwolf/.cache/vamdc/nodes.csv
 
 **Command:**
 ```bash
-python -m pyVAMDC.spectral.cli2 get species --filter-by "name:CO"
+python -m pyVAMDC.spectral.cli get species --filter-by "name:CO"
 ```
 
 **Expected Output:**
@@ -109,7 +109,7 @@ python -m pyVAMDC.spectral.cli2 get species --filter-by "name:CO"
 
 **Command:**
 ```bash
-python -m pyVAMDC.spectral.cli2 count lines \
+python -m pyVAMDC.spectral.cli count lines \
   --inchikey=OKTJSMMVPCPJKN-UHFFFAOYSA-N \
   --lambda-min=1 \
   --lambda-max=10000
@@ -162,7 +162,7 @@ Aggregated numeric headers across 2 sub-queries:
 
 **Command:**
 ```bash
-python -m pyVAMDC.spectral.cli2 get lines \
+python -m pyVAMDC.spectral.cli get lines \
   --inchikey=OKTJSMMVPCPJKN-UHFFFAOYSA-N \
   --lambda-min=1 \
   --lambda-max=10000 \
@@ -209,7 +209,7 @@ Downloaded 2 XSAMS file(s) to /Users/zwolf/.cache/vamdc/xsams:
 
 **Command:**
 ```bash
-python -m pyVAMDC.spectral.cli2 get lines \
+python -m pyVAMDC.spectral.cli get lines \
   --inchikey=OKTJSMMVPCPJKN-UHFFFAOYSA-N \
   --lambda-min=1 \
   --lambda-max=10000 \
@@ -250,7 +250,7 @@ Columns: InchIKey, InchI, Wavelength, A, Weighted Oscillator Strength,
 
 **Command:**
 ```bash
-python -m pyVAMDC.spectral.cli2 cache status
+python -m pyVAMDC.spectral.cli cache status
 ```
 
 **Expected Output:**
@@ -282,7 +282,7 @@ XSAMS files: 4 file(s), 8.51 MB
 
 **Command 1 - With specific species:**
 ```bash
-python -m pyVAMDC.spectral.cli2 count lines \
+python -m pyVAMDC.spectral.cli count lines \
   --inchikey=OKTJSMMVPCPJKN-UHFFFAOYSA-N \
   --lambda-min=1 \
   --lambda-max=10000
@@ -292,7 +292,7 @@ python -m pyVAMDC.spectral.cli2 count lines \
 
 **Command 2 - Without species/node filters (Global query):**
 ```bash
-python -m pyVAMDC.spectral.cli2 count lines \
+python -m pyVAMDC.spectral.cli count lines \
   --lambda-min=100000 \
   --lambda-max=110000
 ```
@@ -395,7 +395,7 @@ No species or node filters provided; querying all species across all nodes.
 
 ---
 
-## Compliance with CLI2.md
+## Compliance with CLI.md
 
 ### Commands Tested Against Documentation
 
@@ -435,7 +435,7 @@ No species or node filters provided; querying all species across all nodes.
 
 ## Conclusion
 
-All CLI2 tests have **PASSED** successfully. The implementation is fully functional and compliant with the CLI2.md specification. The XSAMS double-download optimization is confirmed working correctly, eliminating redundant server queries and data transfers.
+All CLI tests have **PASSED** successfully. The implementation is fully functional and compliant with the CLI.md specification. The XSAMS double-download optimization is confirmed working correctly, eliminating redundant server queries and data transfers.
 
 **Status: READY FOR PRODUCTION ✅**
 
@@ -451,5 +451,5 @@ All CLI2 tests have **PASSED** successfully. The implementation is fully functio
 - **Test Duration:** ~15 minutes
 
 **Test Date:** 2025-10-22  
-**Tester:** Automated CLI2 Test Suite  
+**Tester:** Automated CLI Test Suite  
 **Environment:** Python 3.12.9, macOS, VAMDC Infrastructure  
