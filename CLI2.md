@@ -1,8 +1,8 @@
-# VAMDC Command-Line Interface (CLI2)
+# VAMDC Command-Line Interface
 
 The `vamdc` command-line tool provides access to atomic and molecular spectroscopic data from the VAMDC (Virtual Atomic and Molecular Data Centre) infrastructure.
 
-**CLI2** is an enhanced version that supports querying **multiple species and multiple nodes simultaneously**, leveraging high-level wrapper functions from the `lines` module for better performance and flexibility.
+The CLI supports querying **multiple species and multiple nodes simultaneously**, leveraging high-level wrapper functions from the `lines` module for better performance and flexibility.
 
 ## Installation
 
@@ -15,7 +15,7 @@ Install [uv](https://docs.astral.sh/uv/) and add a shell alias:
 # See https://docs.astral.sh/uv/ for installation instructions
 
 # Add to ~/.bashrc or ~/.zshrc
-alias vamdc='uv run -m pyVAMDC.spectral.cli2'
+alias vamdc='uv run -m pyVAMDC.spectral.cli'
 ```
 
 After adding the alias, restart your shell or run `source ~/.bashrc` (or `~/.zshrc`).
@@ -23,7 +23,7 @@ After adding the alias, restart your shell or run `source ~/.bashrc` (or `~/.zsh
 ### Alternative: Direct execution
 
 ```bash
-python -m pyVAMDC.spectral.cli2
+python -m pyVAMDC.spectral.cli
 ```
 
 ## Command Structure
@@ -43,7 +43,7 @@ vamdc
     └── clear    # Remove cached data
 ```
 
-## Key Enhancements over CLI v1
+## Features
 
 ✨ **Multiple species support**: Query multiple species in one command  
 ✨ **Multiple nodes support**: Query multiple data nodes simultaneously  
@@ -109,7 +109,7 @@ Fetching species from VAMDC Species Database...
 Fetched 4958 species and cached at ~/.cache/vamdc/species.csv
 ```
 
-### `vamdc get lines` ⭐ ENHANCED
+### `vamdc get lines` ⭐
 
 Get spectral lines for one or more species from one or more nodes.
 
@@ -261,7 +261,7 @@ vamdc get lines \
   --accept-truncation
 ```
 
-### `vamdc count lines` ⭐ ENHANCED
+### `vamdc count lines` ⭐
 
 Inspect HEAD metadata for spectroscopic line queries without downloading full data. Supports multiple species and multiple nodes. **Species and node filters are optional** – if not specified, all species across all nodes are queried.
 
@@ -383,7 +383,7 @@ This command performs HEAD requests to retrieve VAMDC count headers without down
 - Truncation status
 - Estimated data sizes
 
-### `vamdc cache status` ⭐ ENHANCED
+### `vamdc cache status`
 
 Show cache status and metadata, including XSAMS files.
 
@@ -438,7 +438,7 @@ The CLI automatically caches downloaded data to avoid redundant network requests
 - `nodes.csv` - VAMDC data nodes
 - `species.csv` - Chemical species database (4958+ species)
 - `species_nodes.csv` - Species-to-node mappings
-- `xsams/` - **XSAMS files directory** (new in CLI2)
+- `xsams/` - **XSAMS files directory**
 - `*_timestamp.json` - Metadata files tracking cache timestamps
 
 **Cache expiration:**
@@ -615,7 +615,7 @@ vamdc get lines \
   --accept-truncation
 ```
 
-## Node Identifiers ⭐ ENHANCED
+## Node Identifiers
 
 The `--node` parameter accepts three types of identifiers with intelligent resolution:
 
@@ -651,7 +651,7 @@ The `--node` parameter accepts three types of identifiers with intelligent resol
 
 ### Resolution Strategy
 
-CLI2 uses intelligent 4-step resolution to convert any identifier to a full TAP endpoint:
+The CLI uses intelligent 4-step resolution to convert any identifier to a full TAP endpoint:
 
 ```
 Step 1: Try matching as TAP endpoint (full URL)
@@ -727,7 +727,7 @@ vamdc get lines \
 
 #### Using TAP endpoint URL
 ```bash
-# Full endpoint (still works, backward compatible)
+# Full endpoint
 vamdc get lines \
   --inchikey=LFQSCWFLJHTTHZ-UHFFFAOYSA-N \
   --node="https://cdms.astro.uni-koeln.de/cdms/tap/"
@@ -757,7 +757,7 @@ To troubleshoot:
 2. Check the short name, IVO ID, or endpoint format
 3. Verify the node has data for your species
 
-## Species Identifiers ⭐ ENHANCED
+## Species Identifiers
 
 The `--inchikey` parameter identifies chemical species for queries. The CLI now supports intelligent species identification with flexible matching.
 
@@ -1161,22 +1161,9 @@ for node in "https://cdms.astro.uni-koeln.de/cdms/tap/" \
 done
 ```
 
-## Key Differences from CLI v1
-
-| Feature | CLI v1 | CLI2 |
-|---------|--------|------|
-| Multiple species | ❌ No | ✅ Yes |
-| Multiple nodes | ❌ No | ✅ Yes |
-| XSAMS cache | ❌ ./XSAMS/ only | ✅ Cache directory |
-| Parallel processing | ⚠️ Limited | ✅ Full support |
-| Output columns | Basic | ✅ Includes node, species_type |
-| Default format | xsams | table |
-| Cache status | Basic | ✅ Includes XSAMS files |
-| Query splitting | Automatic only | ✅ Controllable with --accept-truncation |
-
 ## API Wrapper
 
-CLI2 uses high-level wrapper functions:
+The CLI uses high-level wrapper functions:
 - `lines_module.getLines()` - Downloads and converts data
 - `lines_module.get_metadata_for_lines()` - HEAD requests only
 - `lines_module._build_and_run_wrappings()` - Internal parallel processing
