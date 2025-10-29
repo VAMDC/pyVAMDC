@@ -380,6 +380,17 @@ vamdc count lines \
   --lambda-max=200000
 ```
 
+#### Multiple species, multiple nodes (using short names)
+```bash
+vamdc count lines \
+  --inchikey=LFQSCWFLJHTTHZ-UHFFFAOYSA-N \
+  --inchikey=XLYOFNOQVPJJNP-UHFFFAOYSA-N \
+  --node=cdms \
+  --node=jpl \
+  --lambda-min=100000 \
+  --lambda-max=200000
+```
+
 This command performs HEAD requests to retrieve VAMDC count headers without downloading full datasets, showing:
 - Individual metadata per sub-query
 - Aggregated totals across all sub-queries
@@ -980,6 +991,19 @@ vamdc get lines \
   --lambda-max=200000
 ```
 
+#### Method 4: Query species with short node names
+```bash
+# Query water (H₂O) from multiple nodes using short names
+vamdc get lines \
+  --inchikey=XLYOFNOQVPJJNP-UHFFFAOYSA-N \
+  --node=cdms \
+  --node=jpl \
+  --lambda-min=100000 \
+  --lambda-max=200000 \
+  --format csv \
+  --output water_lines.csv
+```
+
 ### Common Species InChIKeys
 
 Here are some frequently-used species:
@@ -1024,6 +1048,20 @@ Unlike node identifiers, species are **always identified by InChIKey**. However,
      --inchikey=OKTJSMMVPCPJKN-UHFFFAOYSA-N \
      --node=cdms --node=topbase --node=vald
    # Queries all specified nodes that have this species
+   ```
+
+4. **Query species with short node names**:
+   ```bash
+   # Query carbon from multiple nodes using short names
+   vamdc get lines \
+     --inchikey=OKTJSMMVPCPJKN-UHFFFAOYSA-N \
+     --node=topbase \
+     --node=chianti \
+     --node=vald \
+     --lambda-min=1000 \
+     --lambda-max=10000 \
+     --format csv \
+     --output carbon_lines.csv
    ```
 
 ### Workflow: Find and Query Species
