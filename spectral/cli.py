@@ -121,16 +121,17 @@ def resolve_node_identifier(
 ) -> str:
     """
     Resolve a node identifier (short name, IVO ID, or TAP endpoint) to a full TAP endpoint.
-    Uses 4-step matching strategy: TAP endpoint → IVO identifier → short name → nodes table.
-    
+    Uses multi-step matching: TAP endpoint → IVO identifier → exact short name → fuzzy short name → nodes table.
+    Supports fuzzy matching on short names (e.g., "vald" matches "VALD (atoms)").
+
     Args:
-        node_hint: User-provided node identifier (e.g., "cdms", "ivo://vamdc/...", or full URL)
+        node_hint: User-provided node identifier (e.g., "vald", "ivo://vamdc/...", or full URL)
         species_df: DataFrame containing species with node metadata
         nodes_df: DataFrame containing node information
-    
+
     Returns:
         Full TAP endpoint URL
-    
+
     Raises:
         ValueError: If node cannot be resolved
     """
@@ -140,39 +141,45 @@ def resolve_node_identifier(
     node_candidates = species_df[
         species_df["tapEndpoint"].astype(str).str.lower() == normalized_hint
     ]
-    
+
     # Step 2: Try IVO identifier match in species dataframe
     if node_candidates.empty:
         node_candidates = species_df[
             species_df["ivoIdentifier"].astype(str).str.lower() == normalized_hint
         ]
-    
-    # Step 3: Try short name match in species dataframe (if available)
-    if node_candidates.empty and "shortname" in species_df.columns:
+
+    # Step 3: Try exact short name match in species dataframe (if available)
+    if node_candidates.empty and "shortName" in species_df.columns:
         node_candidates = species_df[
-            species_df["shortname"].astype(str).str.lower() == normalized_hint
+            species_df["shortName"].astype(str).str.lower() == normalized_hint
         ]
-    
-    # Step 4: Try matching against nodes table
+
+    # Step 4: Try fuzzy short name match in species dataframe (substring match)
+    if node_candidates.empty and "shortName" in species_df.columns:
+        node_candidates = species_df[
+            species_df["shortName"].astype(str).str.lower().str.contains(normalized_hint, regex=False)
+        ]
+
+    # Step 5: Try matching against nodes table (includes its own fuzzy matching)
     if node_candidates.empty:
         node_candidates = match_against_node_table(species_df, nodes_df, normalized_hint)
-    
+
     if node_candidates.empty:
         raise ValueError(
             f"No node matching '{node_hint}' was found. "
-            f"Try using a full TAP endpoint URL, short name (e.g., 'cdms'), or IVO identifier."
+            f"Try using a full TAP endpoint URL, short name (e.g., 'vald'), or IVO identifier."
         )
-    
+
     # Return the first matching endpoint
     endpoint = node_candidates.iloc[0]["tapEndpoint"]
-    
+
     # Validate endpoint
     if pd.isna(endpoint) or endpoint == "":
         raise ValueError(
             f"Node '{node_hint}' has no TAP endpoint configured. "
             f"This node may not support data queries."
         )
-    
+
     return str(endpoint)
 
 
@@ -181,38 +188,42 @@ def match_against_node_table(
 ) -> pd.DataFrame:
     """
     Match node hint against nodes table and return matching species.
-    
+
     This is a fallback matching strategy when direct species dataframe matching fails.
     It checks the full nodes table for the identifier and returns species using those nodes.
-    
+    Supports fuzzy matching on short names (e.g., "vald" matches "VALD (atoms)").
+
     Args:
         species_df: DataFrame containing species information
         nodes_df: DataFrame containing node metadata
         normalized_hint: Lowercase node identifier to match
-    
+
     Returns:
         DataFrame with matching species rows
     """
     candidate_nodes = pd.DataFrame()
-    
+
     if not nodes_df.empty:
         tap_match = nodes_df["tapEndpoint"].astype(str).str.lower() == normalized_hint
         ivo_match = nodes_df["ivoIdentifier"].astype(str).str.lower() == normalized_hint
         node_mask = tap_match | ivo_match
-        
-        # Include short name matching if available
+
         if "shortName" in nodes_df.columns:
             short_match = nodes_df["shortName"].astype(str).str.lower() == normalized_hint
             node_mask = node_mask | short_match
-        
+
+            if not node_mask.any():
+                fuzzy_match = nodes_df["shortName"].astype(str).str.lower().str.contains(normalized_hint, regex=False)
+                node_mask = node_mask | fuzzy_match
+
         matching_nodes = nodes_df[node_mask]
-        
+
         if not matching_nodes.empty:
             endpoints = matching_nodes["tapEndpoint"].str.lower().tolist()
             candidate_nodes = species_df[
                 species_df["tapEndpoint"].str.lower().isin(endpoints)
             ]
-    
+
     return candidate_nodes
 
 
