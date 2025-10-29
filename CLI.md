@@ -38,6 +38,8 @@ vamdc
 │   └── lines    # Query spectral lines (supports multiple species/nodes)
 ├── count        # Inspect metadata without downloading
 │   └── lines    # Get line counts and metadata (supports multiple species/nodes)
+├── convert      # Perform unit conversions
+│   └── energy   # Convert between energy, frequency, and wavelength units
 └── cache        # Manage local cache
     ├── status   # Show cache information (includes XSAMS files)
     └── clear    # Remove cached data
@@ -51,7 +53,8 @@ vamdc
 ✨ **XSAMS cache integration**: XSAMS files stored in cache by default  
 ✨ **Parallel processing**: Leverages multiprocessing for faster queries  
 ✨ **Enhanced metadata**: Added node and species_type columns to output  
-✨ **Flexible truncation handling**: Control query splitting behavior
+✨ **Flexible truncation handling**: Control query splitting behavior  
+✨ **Unit conversion**: Convert between energy, frequency, and wavelength units
 
 ## Global Options
 
@@ -425,6 +428,173 @@ This removes:
 - Species cache
 - Species-nodes mapping
 - **All cached XSAMS files**
+
+### `vamdc convert energy` 🔄
+
+Convert between electromagnetic units (energy, frequency, wavelength). Supports conversions across different physical quantities using fundamental physical constants.
+
+**Arguments:**
+- `VALUE`: The numerical value to convert (required, positional)
+
+**Options:**
+- `-f, --from-unit TEXT`: Source unit (required)
+- `-t, --to-unit TEXT`: Target unit (required)
+
+**Supported Units:**
+
+| Category | Units |
+|----------|-------|
+| **Energy** | joule, millijoule, microjoule, nanojoule, picojoule, eV, erg, kelvin, rydberg, cm-1 |
+| **Frequency** | hertz, kilohertz, megahertz, gigahertz, terahertz |
+| **Wavelength** | meter, centimeter, millimeter, micrometer, nanometer, angstrom |
+
+**Features:**
+- ✅ Case-insensitive unit names
+- ✅ Cross-category conversions (e.g., wavelength → energy)
+- ✅ Smart output formatting (scientific notation for very large/small values)
+- ✅ Verbose mode with category conversion details
+
+**Examples:**
+
+#### Basic conversions
+```bash
+# Convert 500 nanometers to electron volts
+vamdc convert energy 500 --from-unit=nanometer --to-unit=eV
+# Output: 2.479683969 eV
+
+# Convert 1.5 eV to wavenumber (cm-1)
+vamdc convert energy 1.5 --from-unit=eV --to-unit=cm-1
+# Output: 12098.31591 cm-1
+
+# Convert 3000 angstroms to nanometers
+vamdc convert energy 3000 -f angstrom -t nanometer
+# Output: 300 nanometer
+
+# Convert frequency to wavelength
+vamdc convert energy 100 --from-unit=gigahertz --to-unit=meter
+# Output: 0.00299792458 meter
+```
+
+#### Case-insensitive input
+```bash
+# Units are case-insensitive - all of these work:
+vamdc convert energy 500 --from-unit=NANOMETER --to-unit=EV
+vamdc convert energy 500 --from-unit=NanoMeter --to-unit=eV
+vamdc convert energy 500 --from-unit=nanometer --to-unit=ev
+# All produce: 2.479683969 eV
+```
+
+#### With verbose mode
+```bash
+# Show conversion details and category information
+vamdc --verbose convert energy 100 -f gigahertz -t meter
+# Output:
+# 0.00299792458 meter
+# Conversion details:
+#   Input: 100.0 gigahertz
+#   Output: 0.00299792458 meter
+#   Category conversion: frequency → wavelength
+```
+
+#### Scientific notation for extreme values
+```bash
+# Very small numbers
+vamdc convert energy 0.0001 --from-unit=joule --to-unit=eV
+# Output: 6.241509e+14 eV
+
+# Very large numbers
+vamdc convert energy 1e-10 --from-unit=meter --to-unit=angstrom
+# Output: 1e+00 angstrom
+```
+
+#### Cross-category conversions
+
+The converter intelligently handles conversions between different physical quantities:
+
+```bash
+# Energy → Frequency
+vamdc convert energy 1.5 --from-unit=eV --to-unit=terahertz
+
+# Energy → Wavelength
+vamdc convert energy 2.479683969 --from-unit=eV --to-unit=nanometer
+
+# Frequency → Wavelength
+vamdc convert energy 100 --from-unit=gigahertz --to-unit=meter
+
+# Wavelength → Energy
+vamdc convert energy 500 --from-unit=nanometer --to-unit=eV
+
+# Temperature (in Kelvin) → Energy (in eV)
+vamdc convert energy 11604.5 --from-unit=kelvin --to-unit=eV
+```
+
+**Common conversions:**
+
+```bash
+# Visible light range conversions
+# Red: 700 nm
+vamdc convert energy 700 -f nanometer -t eV
+# Output: 1.771390 eV
+
+# Green: 550 nm
+vamdc convert energy 550 -f nanometer -t eV
+# Output: 2.254581 eV
+
+# Violet: 400 nm
+vamdc convert energy 400 -f nanometer -t eV
+# Output: 3.099019 eV
+
+# Spectroscopic wavenumber
+vamdc convert energy 5000 -f cm-1 -t eV
+# Output: 0.619947 eV
+
+# Radio frequency
+vamdc convert energy 1.4 -f gigahertz -t meter
+# Output: 0.214285714 meter (21.4 cm wavelength - common in radio astronomy)
+```
+
+**Error handling:**
+
+Invalid unit specifications show all supported units:
+
+```bash
+vamdc convert energy 500 --from-unit=invalid --to-unit=eV
+# Error: Invalid from-unit 'invalid'. Supported units:
+#   energy: joule, millijoule, microjoule, nanojoule, picojoule, eV, erg, kelvin, rydberg, cm-1
+#   frequency: hertz, kilohertz, megahertz, gigahertz, terahertz
+#   wavelength: meter, centimeter, millimeter, micrometer, nanometer, angstrom
+```
+
+**Use cases:**
+
+1. **Convert spectral line wavelengths to energies**:
+   ```bash
+   # Convert observed wavelength (Angstroms) to eV for comparison with theory
+   vamdc convert energy 4861 -f angstrom -t eV  # Hydrogen Balmer alpha
+   # Output: 2.550169 eV
+   ```
+
+2. **Convert between observational and theoretical units**:
+   ```bash
+   # Convert radio frequency observation to wavelength
+   vamdc convert energy 345 -f gigahertz -t millimeter
+   # Output: 0.869565 millimeter (for CO line in radio astronomy)
+   ```
+
+3. **Temperature to energy for thermal populations**:
+   ```bash
+   # Convert room temperature to energy
+   vamdc convert energy 300 -f kelvin -t meV
+   vamdc convert energy 300 -f kelvin -t cm-1
+   ```
+
+4. **Pipeline integration**:
+   ```bash
+   # Use in shell scripts
+   wavelength=500
+   energy=$(vamdc convert energy $wavelength -f nanometer -t eV | awk '{print $1}')
+   echo "Wavelength: ${wavelength} nm = ${energy} eV"
+   ```
 
 ## Caching System
 

@@ -17,13 +17,13 @@ try:
     from spectral import species as species_module
     from spectral import lines as lines_module
     from spectral import filters as filters_module
-    from spectral.energyConverter import electromagnetic_conversion
+    from spectral.energyConverter import electromagnetic_conversion, get_conversion_factors
 except ImportError:
     # Fall back to absolute imports (when run as console script)
     from pyVAMDC.spectral import species as species_module
     from pyVAMDC.spectral import lines as lines_module
     from pyVAMDC.spectral import filters as filters_module
-    from pyVAMDC.spectral.energyConverter import electromagnetic_conversion
+    from pyVAMDC.spectral.energyConverter import electromagnetic_conversion, get_conversion_factors
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -273,6 +273,79 @@ def filter_nodes_by_identifiers_resolved(
     # Return species that use any of the resolved endpoints
     endpoint_series = species_df["tapEndpoint"].astype(str).str.lower()
     return species_df[endpoint_series.isin(resolved_endpoints)]
+
+
+def get_all_supported_units() -> Dict[str, list]:
+    """
+    Get all supported units organized by category.
+    
+    Returns:
+        A dictionary with keys 'energy', 'frequency', 'wavelength', each containing a list of supported unit names.
+    """
+    conversion_factors = get_conversion_factors()
+    return {
+        'energy': list(conversion_factors['energy'].keys()),
+        'frequency': list(conversion_factors['frequency'].keys()),
+        'wavelength': list(conversion_factors['wavelength'].keys())
+    }
+
+
+def is_valid_unit(unit: str) -> bool:
+    """
+    Check if a unit is supported by the electromagnetic conversion function.
+    
+    Args:
+        unit: The unit name to validate
+    
+    Returns:
+        True if the unit is supported, False otherwise
+    """
+    supported_units = get_all_supported_units()
+    all_units = set()
+    for units_list in supported_units.values():
+        all_units.update(units_list)
+    return unit in all_units
+
+
+def get_unit_category(unit: str) -> Optional[str]:
+    """
+    Get the category of a unit (energy, frequency, or wavelength).
+    
+    Args:
+        unit: The unit name
+    
+    Returns:
+        The category string or None if unit is not found
+    """
+    supported_units = get_all_supported_units()
+    # Get normalized unit first
+    normalized_unit = normalize_unit(unit)
+    if normalized_unit:
+        for category, units_list in supported_units.items():
+            if normalized_unit in units_list:
+                return category
+    return None
+
+
+def normalize_unit(unit: str) -> Optional[str]:
+    """
+    Normalize unit name to match exactly what's in the conversion factors.
+    Performs case-insensitive matching against known units.
+    
+    Args:
+        unit: The unit name to normalize
+    
+    Returns:
+        The exact unit name as stored in conversion factors, or None if not found
+    """
+    supported_units = get_all_supported_units()
+    # Create a case-insensitive lookup dictionary
+    unit_lookup = {}
+    for category, units_list in supported_units.items():
+        for unit_name in units_list:
+            unit_lookup[unit_name.lower()] = unit_name
+    
+    return unit_lookup.get(unit.lower())
 
 
 @click.group()
@@ -747,6 +820,94 @@ def cache_status(ctx: click.Context):
             click.echo(f"\nXSAMS files: NONE")
     else:
         click.echo(f"\nXSAMS files: NONE")
+
+
+@cli.group()
+def convert():
+    """Convert between electromagnetic units (energy, frequency, wavelength)."""
+    pass
+
+
+@convert.command(name='energy')
+@click.argument('value', type=float)
+@click.option('--from-unit', '-f', type=str, required=True, 
+              help='Source unit (e.g., joule, eV, hertz, meter, angstrom)')
+@click.option('--to-unit', '-t', type=str, required=True,
+              help='Target unit (e.g., eV, kelvin, cm-1, gigahertz, nanometer)')
+@click.pass_context
+def convert_energy(ctx: click.Context, value: float, from_unit: str, to_unit: str):
+    """Convert energy, frequency, or wavelength values between different units.
+
+    Supports conversions between:
+    - Energy units: joule, millijoule, microjoule, nanojoule, picojoule, eV, erg, kelvin, rydberg, cm-1
+    - Frequency units: hertz, kilohertz, megahertz, gigahertz, terahertz
+    - Wavelength units: meter, centimeter, millimeter, micrometer, nanometer, angstrom
+
+    Example:
+        vamdc convert energy 500 --from-unit=nanometer --to-unit=eV
+        vamdc convert energy 1.5 --from-unit=eV --to-unit=cm-1
+        vamdc convert energy 100 --from-unit=gigahertz --to-unit=meter
+        vamdc convert energy 3000 -f angstrom -t nanometer
+    """
+    try:
+        # Normalize unit names to exact case as stored in conversion factors
+        from_unit_normalized = normalize_unit(from_unit)
+        to_unit_normalized = normalize_unit(to_unit)
+        
+        # Validate from_unit
+        if not from_unit_normalized:
+            supported_units = get_all_supported_units()
+            all_units_str = "\n".join([
+                f"  {category}: {', '.join(units)}"
+                for category, units in supported_units.items()
+            ])
+            click.echo(f"Error: Invalid from-unit '{from_unit}'. Supported units:", err=True)
+            click.echo(all_units_str, err=True)
+            sys.exit(1)
+        
+        # Validate to_unit
+        if not to_unit_normalized:
+            supported_units = get_all_supported_units()
+            all_units_str = "\n".join([
+                f"  {category}: {', '.join(units)}"
+                for category, units in supported_units.items()
+            ])
+            click.echo(f"Error: Invalid to-unit '{to_unit}'. Supported units:", err=True)
+            click.echo(all_units_str, err=True)
+            sys.exit(1)
+        
+        # Perform the conversion
+        converted_value = electromagnetic_conversion(value, from_unit_normalized, to_unit_normalized)
+        
+        # Format the output: numeric value followed by target unit
+        # Use scientific notation if the value is very small or very large
+        if abs(converted_value) < 1e-6 or abs(converted_value) > 1e6:
+            formatted_value = f"{converted_value:.6e}"
+        else:
+            # For reasonable-sized numbers, show up to 10 significant figures
+            formatted_value = f"{converted_value:.10g}"
+        
+        click.echo(f"{formatted_value} {to_unit_normalized}")
+        
+        if ctx.obj.get('verbose', False):
+            click.echo(f"Conversion details:", err=True)
+            click.echo(f"  Input: {value} {from_unit_normalized}", err=True)
+            click.echo(f"  Output: {formatted_value} {to_unit_normalized}", err=True)
+            from_category = get_unit_category(from_unit_normalized)
+            to_category = get_unit_category(to_unit_normalized)
+            click.echo(f"  Category conversion: {from_category} → {to_category}", err=True)
+    
+    except ValueError as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+    except Exception as e:
+        click.echo(f"Error: Unexpected error during conversion: {e}", err=True)
+        if ctx.obj.get('verbose', False):
+            import traceback
+            traceback.print_exc()
+        sys.exit(1)
+
+
 
 
 # Utility functions
