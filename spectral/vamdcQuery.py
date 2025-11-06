@@ -85,6 +85,10 @@ class VamdcQuery:
 
     """
 
+    # Constants for HTTP headers
+    USER_AGENT_QUERY_STORE = 'VAMDC Query store'
+    DEFAULT_USER_AGENT = 'pyVAMDC v0.1'
+
     def __init__(self, nodeEndpoint, lambdaMin, lambdaMax, InchiKey, speciesType, totalListOfQueries, verbose = False, acceptTruncation = False):
       """ This is the constructor of the VAMDCQuery class. 
       The subtlety consists in the fact that this constructor is recursive and takes as argument a list of VAMDCQuery instances already instanciated. 
@@ -137,8 +141,11 @@ class VamdcQuery:
       query = "select * where (RadTransWavelength >= {0} AND RadTransWavelength <= {1}) AND ((InchiKey = '{2}'))".format(lambdaMin, lambdaMax, InchiKey)
       self.vamdcCall = self.nodeEndpoint + "sync?LANG=VSS2&REQUEST=doQuery&FORMAT=XSAMS&QUERY="+query
 
-      # to be changed in the final version of the lib. This option desactivate the Query Store notifications
-      headers = {'User-Agent':'VAMDC Query store'}
+      
+      if(self.acceptTruncation):
+        headers = {'User-Agent' : self.DEFAULT_USER_AGENT}
+      else: 
+        headers = {'User-Agent': self.USER_AGENT_QUERY_STORE}
          
       try:
           response = requests.head(self.vamdcCall, headers=headers)
@@ -199,7 +206,7 @@ class VamdcQuery:
       The dowloaded data are stored with the filename from the attribute XSAMSFileName
       """
       # to be changed in the final version of the lib. This option desactivate the Query Store notifications
-      headers = {'User-Agent':'pyVAMDC v0.1'}
+      headers = {'User-Agent': self.DEFAULT_USER_AGENT}
       self.queryToken = None
       
       # we get the data only if there is data and the request is not truncated
