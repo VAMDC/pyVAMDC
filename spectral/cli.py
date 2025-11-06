@@ -18,14 +18,14 @@ try:
     from spectral import lines as lines_module
     from spectral import filters as filters_module
     from spectral.energyConverter import electromagnetic_conversion, get_conversion_factors
-    from spectral.slap import create_slap2_votables_from_species
+    from spectral.slap import create_slap2_votables_from_species, create_slap2_votables_from_lines
 except ImportError:
     # Fall back to absolute imports (when run as console script)
     from pyVAMDC.spectral import species as species_module
     from pyVAMDC.spectral import lines as lines_module
     from pyVAMDC.spectral import filters as filters_module
     from pyVAMDC.spectral.energyConverter import electromagnetic_conversion, get_conversion_factors
-    from pyVAMDC.spectral.slap import create_slap2_votables_from_species
+    from pyVAMDC.spectral.slap import create_slap2_votables_from_species, create_slap2_votables_from_lines
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -521,20 +521,24 @@ def species_cmd(ctx: click.Context, format: str, output: Optional[str], refresh:
               default='table', help='Output format (xsams: raw XSAMS files, csv/json/table: converted tabular data)')
 @click.option('--output', '-o', type=click.Path(), help='Output file path (tabular) or directory (XSAMS). Default for XSAMS: cache directory')
 @click.option('--accept-truncation', is_flag=True, help='Accept truncated query results without recursive splitting')
+@click.option('--slap2', is_flag=True, help='Generate SLAP2-compliant VOTable XML files from spectral lines (independent of format)')
 @click.pass_context
 def lines(ctx: click.Context, inchikey: tuple, node: tuple, lambda_min: float,
-          lambda_max: float, format: str, output: Optional[str], accept_truncation: bool):
+          lambda_max: float, format: str, output: Optional[str], accept_truncation: bool, slap2: bool):
     """Get spectral lines for species in a wavelength range.
 
     This command uses the high-level getLines wrapper, which supports multiple species
-    and multiple nodes in a single query. Results can be returned as raw XSAMS files or 
-    converted to tabular formats (CSV, JSON, table).
+    and multiple nodes in a single query. Results can be returned as raw XSAMS files,
+    converted to tabular formats (CSV, JSON, table), or as SLAP2-compliant VOTable files.
+
+    The --slap2 flag generates SLAP2 VOTable XML files (independent of --format option).
 
     Example:
         vamdc get lines --inchikey=LFQSCWFLJHTTHZ-UHFFFAOYSA-N --lambda-min=3000 --lambda-max=5000
         vamdc get lines --inchikey=LFQSCWFLJHTTHZ-UHFFFAOYSA-N --inchikey=UGFAIRIUMAVXCW-UHFFFAOYSA-N \\
                         --node=basecol --node=cdms --lambda-min=3000 --lambda-max=5000 --format csv
         vamdc get lines --inchikey=LFQSCWFLJHTTHZ-UHFFFAOYSA-N --format xsams --output ./my_xsams_files
+        vamdc get lines --inchikey=LFQSCWFLJHTTHZ-UHFFFAOYSA-N --slap2 --output ./my_votables/
     """
     try:
         if lambda_max <= lambda_min:
@@ -593,6 +597,44 @@ def lines(ctx: click.Context, inchikey: tuple, node: tuple, lambda_min: float,
             acceptTruncation=accept_truncation
         )
 
+        # Handle SLAP2 VOTable format output
+        if slap2:
+            click.echo("Generating SLAP2-compliant VOTable files...", err=True)
+            try:
+                # Determine output directory for VOTables
+                if output:
+                    # Use specified output as directory
+                    votable_dir = Path(output).expanduser()
+                else:
+                    # Use cache directory
+                    votable_dir = CACHE_DIR / 'votables'
+                
+                votable_dir.mkdir(parents=True, exist_ok=True)
+                
+                # Generate VOTables grouped by node
+                slap2_results = create_slap2_votables_from_lines(
+                    atomic_dict,
+                    molecular_dict,
+                    queries_metadata,
+                    lambdaMin=lambda_min,
+                    lambdaMax=lambda_max,
+                    output_directory=str(votable_dir)
+                )
+                
+                click.echo(f"\nGenerated {len(slap2_results)} SLAP2 VOTable file(s) to {votable_dir}:")
+                for result in slap2_results:
+                    votable_file = result['votable_filepath']
+                    species_type = result['species_type']
+                    lines_count = result['lines_count']
+                    click.echo(f"  {Path(votable_file).name}")
+                    click.echo(f"    Species type: {species_type}")
+                    click.echo(f"    Lines: {lines_count}")
+            
+            except Exception as e:
+                click.echo(f"Warning: Failed to generate SLAP2 VOTables: {e}", err=True)
+            
+            return
+
         # Handle XSAMS format output
         if format == 'xsams':
             # For XSAMS format, use the XSAMS file paths already downloaded by getLines()
@@ -622,11 +664,13 @@ def lines(ctx: click.Context, inchikey: tuple, node: tuple, lambda_min: float,
                     src_path.replace(dst_path)
                     moved_files.append(str(dst_path))
             
-        click.echo(f"\nDownloaded {len(moved_files)} XSAMS file(s) to {output_dir}:")
-        for file_path in moved_files:
-            click.echo(f"  {file_path}")
+            click.echo(f"\nDownloaded {len(moved_files)} XSAMS file(s) to {output_dir}:")
+            for file_path in moved_files:
+                click.echo(f"  {file_path}")
             
-        return        # Combine results for tabular formats
+            return
+
+        # Combine results for tabular formats
         all_frames = []
         
         if atomic_dict:
