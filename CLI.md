@@ -89,20 +89,40 @@ Fetched 32 nodes and cached at ~/.cache/vamdc/nodes.csv
 Get list of chemical species and cache them locally.
 
 **Options:**
-- `-f, --format [json|csv|excel|table]`: Output format (default: table)
-- `-o, --output PATH`: Save output to file
+- `-f, --format [json|csv|excel|table]`: Output format for species data (default: table). Only used if `--slap2` is NOT specified.
+- `-o, --output PATH`: Output file path for species data (when exporting). For `--slap2`, specifies directory for VOTable files.
 - `--refresh`: Force refresh cache
 - `--filter-by TEXT`: Filter by criteria (format: "column:value")
-- `--slap2`: Generate SLAP2-compliant VOTable files from species data
+- `--slap2`: Generate SLAP2-compliant VOTable XML files (independent of `--format`)
 
 **Examples:**
+
+**Without `--slap2` (export species data):**
 ```bash
+# Display species list in terminal (default)
 vamdc get species
+
+# Export as CSV file
 vamdc get species --format csv --output species.csv
+
+# Export as Excel file
 vamdc get species --format excel --output species.xlsx
+
+# Display as table with filter
 vamdc get species --filter-by "name:CO"
-vamdc get species --format table --slap2
-vamdc get species --format table --output ./my_data --slap2
+```
+
+**With `--slap2` (generate VOTable XML files):**
+```bash
+# Generate VOTables in default cache directory (~/.cache/vamdc/votables/)
+vamdc get species --slap2
+
+# Generate VOTables in custom directory
+vamdc get species --slap2 --output /archive/votables/
+
+# Note: --format and --output are IGNORED when using --slap2
+# This generates VOTables, NOT species data export
+vamdc get species --slap2 --output /my/votables/
 ```
 
 **Filter format:**
@@ -115,15 +135,43 @@ Fetching species from VAMDC Species Database...
 Fetched 4958 species and cached at ~/.cache/vamdc/species.csv
 ```
 
-**SLAP2 VOTable generation:**
-When `--slap2` flag is used, SLAP2-compliant VOTable files are generated grouped by data node:
+**SLAP2 VOTable Generation:**
+
+`--slap2` is a **completely independent operation** from species data export. When you use `--slap2`:
+- `--format` is **IGNORED** (VOTables are always XML, not markdown/CSV/JSON)
+- `--output` specifies the **directory** for VOTable files (not a file path)
+- Species data is **NOT** exported; only VOTable XML files are created
+- VOTables are grouped by data node (one XML file per node)
+
+**Key differences:**
+
+| Command | What happens | Output |
+|---------|--------------|--------|
+| `vamdc get species` | Display full species list in terminal | Terminal (markdown table) |
+| `vamdc get species --format csv --output data.csv` | Export species to CSV | File: `data.csv` |
+| `vamdc get species --slap2` | Generate SLAP2 VOTable XML files | Directory: `~/.cache/vamdc/votables/` (VOTable XML files) |
+| `vamdc get species --slap2 --output /archive/` | Generate SLAP2 VOTable XML files | Directory: `/archive/` (VOTable XML files) |
+
+**Important:** Do NOT confuse:
+- `--format table` = display as markdown table in terminal
+- `--slap2` = generate SLAP2-compliant VOTable XML files (machine-readable, not markdown)
+
+These are **mutually exclusive purposes**. Use one or the other, not together.
+
+**Examples:**
 
 ```bash
 # Generate VOTables in default cache directory
 vamdc get species --slap2
 
 # Generate VOTables in custom directory
-vamdc get species --output ./my_votables --slap2
+vamdc get species --slap2 --output /archive/votables/
+
+# Export species data to CSV (separate from VOTable generation)
+vamdc get species --format csv --output species.csv
+
+# Then separately generate VOTables
+vamdc get species --slap2 --output /archive/votables/
 ```
 
 **Sample output with `--slap2` flag:**
@@ -132,12 +180,23 @@ Loaded 4958 species from cache
 
 Generating SLAP2-compliant VOTable files...
 
-Generated 12 SLAP2 VOTable file(s) to ~/.cache/vamdc/votables:
+Generated 12 SLAP2 VOTable file(s) to /archive/votables:
   CDMS: slap2_species_CDMS_20251106_150000.xml
     Species: 245
   JPL: slap2_species_JPL_20251106_150001.xml
     Species: 198
-  ... (10 more nodes)
+  TOPBASE: slap2_species_TOPBASE_20251106_150002.xml
+    Species: 512
+  ... (9 more nodes)
+```
+
+**VOTable files are XML format** (not human-readable markdown):
+```bash
+# View VOTable XML structure
+head -30 /archive/votables/slap2_species_CDMS_20251106_150000.xml
+
+# Count species in a VOTable
+grep -c "<TR>" /archive/votables/slap2_species_CDMS_20251106_150000.xml
 ```
 
 ### `vamdc get lines` ⭐

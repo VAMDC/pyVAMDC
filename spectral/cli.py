@@ -434,15 +434,15 @@ def species_cmd(ctx: click.Context, format: str, output: Optional[str], refresh:
                 filter_by: Optional[str], slap2: bool):
     """Get list of chemical species and cache them locally.
 
-    Use --slap2 flag to also generate SLAP2-compliant VOTable files.
+    Use --slap2 flag to generate SLAP2-compliant VOTable files (independent of format).
     VOTable files will be stored in the specified output directory or cache directory.
 
     Example:
         vamdc get species
         vamdc get species --format csv --output species.csv
         vamdc get species --filter-by "name:CO"
-        vamdc get species --format table --slap2
-        vamdc get species --format table --output ./my_output --slap2
+        vamdc get species --slap2
+        vamdc get species --slap2 --output /path/to/votables/
     """
     try:
         # Load species data (uses cache if valid)
@@ -457,34 +457,36 @@ def species_cmd(ctx: click.Context, format: str, output: Optional[str], refresh:
         if filter_by:
             df_species = apply_filter(df_species, filter_by)
 
-        # Format output
-        output_content = format_output(df_species, format)
+        # Format output (only for non-SLAP2 operations)
+        if not slap2:
+            # User wants species data export
+            output_content = format_output(df_species, format)
 
-        # Write to file or stdout
-        if output:
-            if format == 'excel':
-                df_species.to_excel(output, index=False)
-            elif format == 'csv':
-                df_species.to_csv(output, index=False)
-            elif format == 'json':
-                df_species.to_json(output, orient='records', indent=2)
+            # Write to file or stdout
+            if output:
+                if format == 'excel':
+                    df_species.to_excel(output, index=False)
+                elif format == 'csv':
+                    df_species.to_csv(output, index=False)
+                elif format == 'json':
+                    df_species.to_json(output, orient='records', indent=2)
+                else:  # format == 'table'
+                    with open(output, 'w') as f:
+                        f.write(output_content)
+                click.echo(f"Species saved to {output}")
             else:
-                with open(output, 'w') as f:
-                    f.write(output_content)
-            click.echo(f"Species saved to {output}")
-        else:
-            click.echo(output_content)
+                click.echo(output_content)
 
         # Generate SLAP2 VOTables if requested
         if slap2:
-            click.echo("\nGenerating SLAP2-compliant VOTable files...", err=True)
+            click.echo("Generating SLAP2-compliant VOTable files...", err=True)
             try:
                 # Determine output directory for VOTables
-                if output and format != 'excel':
-                    # If output is specified and it's not excel format, use output directory
-                    votable_dir = Path(output).parent.expanduser()
+                if output:
+                    # Use specified output as directory
+                    votable_dir = Path(output).expanduser()
                 else:
-                    # Otherwise use cache directory
+                    # Use cache directory
                     votable_dir = CACHE_DIR / 'votables'
                 
                 votable_dir.mkdir(parents=True, exist_ok=True)
