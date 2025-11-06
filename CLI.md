@@ -93,6 +93,7 @@ Get list of chemical species and cache them locally.
 - `-o, --output PATH`: Save output to file
 - `--refresh`: Force refresh cache
 - `--filter-by TEXT`: Filter by criteria (format: "column:value")
+- `--slap2`: Generate SLAP2-compliant VOTable files from species data
 
 **Examples:**
 ```bash
@@ -100,6 +101,8 @@ vamdc get species
 vamdc get species --format csv --output species.csv
 vamdc get species --format excel --output species.xlsx
 vamdc get species --filter-by "name:CO"
+vamdc get species --format table --slap2
+vamdc get species --format table --output ./my_data --slap2
 ```
 
 **Filter format:**
@@ -110,6 +113,31 @@ vamdc get species --filter-by "name:CO"
 ```
 Fetching species from VAMDC Species Database...
 Fetched 4958 species and cached at ~/.cache/vamdc/species.csv
+```
+
+**SLAP2 VOTable generation:**
+When `--slap2` flag is used, SLAP2-compliant VOTable files are generated grouped by data node:
+
+```bash
+# Generate VOTables in default cache directory
+vamdc get species --slap2
+
+# Generate VOTables in custom directory
+vamdc get species --output ./my_votables --slap2
+```
+
+**Sample output with `--slap2` flag:**
+```
+Loaded 4958 species from cache
+
+Generating SLAP2-compliant VOTable files...
+
+Generated 12 SLAP2 VOTable file(s) to ~/.cache/vamdc/votables:
+  CDMS: slap2_species_CDMS_20251106_150000.xml
+    Species: 245
+  JPL: slap2_species_JPL_20251106_150001.xml
+    Species: 198
+  ... (10 more nodes)
 ```
 
 ### `vamdc get lines` ⭐
@@ -620,6 +648,8 @@ The CLI automatically caches downloaded data to avoid redundant network requests
 - `species.csv` - Chemical species database (4958+ species)
 - `species_nodes.csv` - Species-to-node mappings
 - `xsams/` - **XSAMS files directory**
+  - Raw XSAMS XML files from queries
+  - **SLAP2 VOTable files** (when `--slap2` flag is used)
 - `*_timestamp.json` - Metadata files tracking cache timestamps
 
 **Cache expiration:**
@@ -631,8 +661,16 @@ The CLI automatically caches downloaded data to avoid redundant network requests
 **XSAMS files management:**
 - Default location: `~/.cache/vamdc/xsams/`
 - Files named by query token: `<node>:<token>:get.xsams`
+- **SLAP2 VOTable files** (when `--slap2` flag used):
+  - Named pattern: `slap2_species_{NODE_NAME}_{TIMESTAMP}.xml`
+  - One file per data node (as per SLAP2 specification)
+  - Grouped by species data (InChIKey, formula, type, etc.)
+  - Examples:
+    - `slap2_species_CDMS_20251106_150000.xml`
+    - `slap2_species_JPL_20251106_150001.xml`
+    - `slap2_species_BASECOL_20251106_150002.xml`
 - View count and size: `vamdc cache status`
-- Clear all XSAMS: `vamdc cache clear`
+- Clear all XSAMS and VOTables: `vamdc cache clear`
 
 ## Environment Variables
 
@@ -761,7 +799,7 @@ vamdc get lines \
   --output co_all_sources.csv
 ```
 
-### Work with XSAMS files
+### Work with XSAMS files and VOTable files
 
 ```bash
 # Download XSAMS to cache using short node name

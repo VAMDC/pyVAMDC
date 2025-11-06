@@ -18,12 +18,14 @@ try:
     from spectral import lines as lines_module
     from spectral import filters as filters_module
     from spectral.energyConverter import electromagnetic_conversion, get_conversion_factors
+    from spectral.slap import create_slap2_votables_from_species
 except ImportError:
     # Fall back to absolute imports (when run as console script)
     from pyVAMDC.spectral import species as species_module
     from pyVAMDC.spectral import lines as lines_module
     from pyVAMDC.spectral import filters as filters_module
     from pyVAMDC.spectral.energyConverter import electromagnetic_conversion, get_conversion_factors
+    from pyVAMDC.spectral.slap import create_slap2_votables_from_species
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -426,15 +428,21 @@ def nodes(ctx: click.Context, format: str, output: Optional[str], refresh: bool)
 @click.option('--output', '-o', type=click.Path(), help='Output file path')
 @click.option('--refresh', is_flag=True, help='Force refresh cache')
 @click.option('--filter-by', type=click.STRING, help='Filter by criteria (e.g., "name:CO")')
+@click.option('--slap2', is_flag=True, help='Generate SLAP2-compliant VOTable files from species data')
 @click.pass_context
 def species_cmd(ctx: click.Context, format: str, output: Optional[str], refresh: bool,
-                filter_by: Optional[str]):
+                filter_by: Optional[str], slap2: bool):
     """Get list of chemical species and cache them locally.
+
+    Use --slap2 flag to also generate SLAP2-compliant VOTable files.
+    VOTable files will be stored in the specified output directory or cache directory.
 
     Example:
         vamdc get species
         vamdc get species --format csv --output species.csv
         vamdc get species --filter-by "name:CO"
+        vamdc get species --format table --slap2
+        vamdc get species --format table --output ./my_output --slap2
     """
     try:
         # Load species data (uses cache if valid)
@@ -466,6 +474,34 @@ def species_cmd(ctx: click.Context, format: str, output: Optional[str], refresh:
             click.echo(f"Species saved to {output}")
         else:
             click.echo(output_content)
+
+        # Generate SLAP2 VOTables if requested
+        if slap2:
+            click.echo("\nGenerating SLAP2-compliant VOTable files...", err=True)
+            try:
+                # Determine output directory for VOTables
+                if output and format != 'excel':
+                    # If output is specified and it's not excel format, use output directory
+                    votable_dir = Path(output).parent.expanduser()
+                else:
+                    # Otherwise use cache directory
+                    votable_dir = CACHE_DIR / 'votables'
+                
+                votable_dir.mkdir(parents=True, exist_ok=True)
+                
+                # Generate VOTables grouped by node
+                slap2_results = create_slap2_votables_from_species(
+                    output_directory=str(votable_dir)
+                )
+                
+                click.echo(f"\nGenerated {len(slap2_results)} SLAP2 VOTable file(s) to {votable_dir}:")
+                for result in slap2_results:
+                    votable_file = result['votable_filepath']
+                    click.echo(f"  {result['node_shortname']}: {Path(votable_file).name}")
+                    click.echo(f"    Species: {result['species_count']}")
+            
+            except Exception as e:
+                click.echo(f"Warning: Failed to generate SLAP2 VOTables: {e}", err=True)
 
     except Exception as e:
         click.echo(f"Error: {e}", err=True)
@@ -584,13 +620,11 @@ def lines(ctx: click.Context, inchikey: tuple, node: tuple, lambda_min: float,
                     src_path.replace(dst_path)
                     moved_files.append(str(dst_path))
             
-            click.echo(f"\nDownloaded {len(moved_files)} XSAMS file(s) to {output_dir}:")
-            for file_path in moved_files:
-                click.echo(f"  {file_path}")
+        click.echo(f"\nDownloaded {len(moved_files)} XSAMS file(s) to {output_dir}:")
+        for file_path in moved_files:
+            click.echo(f"  {file_path}")
             
-            return
-
-        # Combine results for tabular formats
+        return        # Combine results for tabular formats
         all_frames = []
         
         if atomic_dict:
