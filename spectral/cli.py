@@ -517,28 +517,25 @@ def species_cmd(ctx: click.Context, format: str, output: Optional[str], refresh:
               help=f'Minimum wavelength in Angstrom (default: {DEFAULT_LAMBDA_MIN:g})')
 @click.option('--lambda-max', type=float, default=DEFAULT_LAMBDA_MAX,
               help=f'Maximum wavelength in Angstrom (default: {DEFAULT_LAMBDA_MAX:g})')
-@click.option('--format', '-f', type=click.Choice(['xsams', 'csv', 'json', 'table']),
-              default='table', help='Output format (xsams: raw XSAMS files, csv/json/table: converted tabular data)')
-@click.option('--output', '-o', type=click.Path(), help='Output file path (tabular) or directory (XSAMS). Default for XSAMS: cache directory')
+@click.option('--format', '-f', type=click.Choice(['xsams', 'slap2', 'csv', 'json', 'table']),
+              default='table', help='Output format (xsams/slap2: raw XML files, csv/json/table: converted tabular data)')
+@click.option('--output', '-o', type=click.Path(), help='Output file path (tabular) or directory (XSAMS/SLAP2). Default for XSAMS/SLAP2: cache directory')
 @click.option('--accept-truncation', is_flag=True, help='Accept truncated query results without recursive splitting')
-@click.option('--slap2', is_flag=True, help='Generate SLAP2-compliant VOTable XML files from spectral lines (independent of format)')
 @click.pass_context
 def lines(ctx: click.Context, inchikey: tuple, node: tuple, lambda_min: float,
-          lambda_max: float, format: str, output: Optional[str], accept_truncation: bool, slap2: bool):
+          lambda_max: float, format: str, output: Optional[str], accept_truncation: bool):
     """Get spectral lines for species in a wavelength range.
 
     This command uses the high-level getLines wrapper, which supports multiple species
-    and multiple nodes in a single query. Results can be returned as raw XSAMS files,
-    converted to tabular formats (CSV, JSON, table), or as SLAP2-compliant VOTable files.
-
-    The --slap2 flag generates SLAP2 VOTable XML files (independent of --format option).
+    and multiple nodes in a single query. Results can be returned as raw XSAMS or SLAP2 XML files,
+    or converted to tabular formats (CSV, JSON, table).
 
     Example:
         vamdc get lines --inchikey=LFQSCWFLJHTTHZ-UHFFFAOYSA-N --lambda-min=3000 --lambda-max=5000
         vamdc get lines --inchikey=LFQSCWFLJHTTHZ-UHFFFAOYSA-N --inchikey=UGFAIRIUMAVXCW-UHFFFAOYSA-N \\
                         --node=basecol --node=cdms --lambda-min=3000 --lambda-max=5000 --format csv
         vamdc get lines --inchikey=LFQSCWFLJHTTHZ-UHFFFAOYSA-N --format xsams --output ./my_xsams_files
-        vamdc get lines --inchikey=LFQSCWFLJHTTHZ-UHFFFAOYSA-N --slap2 --output ./my_votables/
+        vamdc get lines --inchikey=LFQSCWFLJHTTHZ-UHFFFAOYSA-N --format slap2 --output ./my_votables/
     """
     try:
         if lambda_max <= lambda_min:
@@ -598,7 +595,7 @@ def lines(ctx: click.Context, inchikey: tuple, node: tuple, lambda_min: float,
         )
 
         # Handle SLAP2 VOTable format output
-        if slap2:
+        if format == 'slap2':
             click.echo("Generating SLAP2-compliant VOTable files...", err=True)
             try:
                 # Determine output directory for VOTables

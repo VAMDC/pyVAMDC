@@ -208,10 +208,9 @@ Get spectral lines for one or more species from one or more nodes.
 - `--node TEXT`: Node identifier - TAP endpoint, IVO ID, or shortname (**can be specified multiple times**)
 - `--lambda-min FLOAT`: Minimum wavelength in Angstrom (default: 0.0)
 - `--lambda-max FLOAT`: Maximum wavelength in Angstrom (default: 1.0e9)
-- `-f, --format [xsams|csv|json|table]`: Output format (default: table)
+- `-f, --format [xsams|slap2|csv|json|table]`: Output format (default: table)
 - `-o, --output PATH`: Output file path (tabular) or directory (XSAMS/SLAP2). Default for XSAMS/SLAP2: cache directory
 - `--accept-truncation`: Accept truncated results without recursive splitting
-- `--slap2`: Generate SLAP2-compliant VOTable XML files (independent of `--format`)
 
 **Output format behavior:**
 - **xsams**: Raw XSAMS XML files
@@ -226,6 +225,17 @@ Get spectral lines for one or more species from one or more nodes.
   - All spectroscopic line data fields
   - `node`: TAP endpoint of the data source
   - `species_type`: atom or molecule
+
+**Important note about `--format` option:**
+If you specify `--format` multiple times, **the last value will be used**. For example:
+```bash
+# Only slap2 is used (xsams is ignored)
+vamdc get lines --inchikey=... --format xsams --format slap2
+
+# Equivalent to:
+vamdc get lines --inchikey=... --format slap2
+```
+Each command execution can only generate one output format. To get both XSAMS and SLAP2 files, run the command twice with different `--format` options.
 
 **Examples:**
 
@@ -340,7 +350,7 @@ vamdc get lines \
   --node=topbase \
   --lambda-min=1000 \
   --lambda-max=2000 \
-  --slap2 \
+  --format slap2 \
   --accept-truncation
 
 # Generate SLAP2 VOTables in custom directory
@@ -349,7 +359,7 @@ vamdc get lines \
   --node=topbase \
   --lambda-min=1000 \
   --lambda-max=2000 \
-  --slap2 \
+  --format slap2 \
   --output /archive/votables/ \
   --accept-truncation
 
@@ -361,11 +371,11 @@ vamdc get lines \
   --node=jpl \
   --lambda-min=100000 \
   --lambda-max=200000 \
-  --slap2 \
+  --format slap2 \
   --output /archive/votables/
 ```
 
-**Sample output with `--slap2` flag:**
+**Sample output with `--format slap2` option:**
 ```
 Querying spectral lines...
 Wavelength range: 1000.0 - 2000.0 Angstrom
@@ -977,7 +987,7 @@ vamdc get lines \
   --node=topbase \
   --lambda-min=1000 \
   --lambda-max=2000 \
-  --slap2 \
+  --format slap2 \
   --accept-truncation
 
 # Generate SLAP2 VOTable files in custom directory
@@ -987,7 +997,7 @@ vamdc get lines \
   --node=chianti \
   --lambda-min=1000 \
   --lambda-max=2000 \
-  --slap2 \
+  --format slap2 \
   --output /archive/2025/votables/ \
   --accept-truncation
 
@@ -999,7 +1009,7 @@ vamdc get lines \
   --node=cdms \
   --lambda-min=1000 \
   --lambda-max=10000 \
-  --slap2 \
+  --format slap2 \
   --output /archive/2025/votables/
 ```
 
