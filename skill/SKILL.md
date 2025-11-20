@@ -82,7 +82,11 @@ vamdc get species --filter-by "name:Magnesium"
 
 **Step 2 (optional): Preview data before downloading**
 
-Check how many lines will be retrieved without downloading full data:
+From the result of the _vamdc get species_ you can check if a given species is present in a given database. 
+If the database does not have the species, we already know any further query will provide no results. 
+
+If the database contains the species, we can continue:
+To check how many lines will be retrieved without downloading full data:
 
 ```bash
 vamdc count lines \
