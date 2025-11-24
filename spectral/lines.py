@@ -211,9 +211,13 @@ def _build_and_run_wrappings(lambdaMin, lambdaMax, species_dataframe, nodes_data
 
     # we launch the parallel processing using the wrapper objects
     # we will have a process for each datanode
-    with multiprocessing.Pool(processes=NbOfProcesses) as pool:
-        # Apply the process_instance function to each instance and get the results
-        results = pool.map(_process_instance, wrappingInstances)
+    # Handle the case where no wrapping instances were created (empty species for selected nodes)
+    if NbOfProcesses == 0:
+        results = []
+    else:
+        with multiprocessing.Pool(processes=NbOfProcesses) as pool:
+            # Apply the process_instance function to each instance and get the results
+            results = pool.map(_process_instance, wrappingInstances)
 
      # defining an empty list, which will be used to store all the VamdcQuery instances returned by the parallel process
     listOfAllQueries = []
