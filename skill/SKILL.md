@@ -39,6 +39,10 @@ Run commands using:
 uvx --from . vamdc [COMMAND]
 ```
 
+The full documentation of the commands available:
+```bash
+more pyVAMDC/CLI.md
+```
 
 ## Core Workflows
 
