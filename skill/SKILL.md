@@ -39,10 +39,7 @@ Run commands using:
 uvx --from . vamdc [COMMAND]
 ```
 
-The full documentation of the commands available:
-```bash
-more pyVAMDC/CLI.md
-```
+the file pyVAMDC/CLI.md contains the full documentation of this command. 
 
 ## Core Workflows
 
@@ -87,7 +84,8 @@ vamdc get species --filter-by "name:Magnesium"
 **Step 2 (optional): Preview data before downloading**
 
 From the result of the _vamdc get species_ you can check if a given species is present in a given database. 
-If the database does not have the species, we already know any further query will provide no results. 
+If the database does not contain the given species we are looking for, it is useless to query spectroscopic data on it. 
+
 
 If the database contains the species, we can continue:
 To check how many lines will be retrieved without downloading full data:
