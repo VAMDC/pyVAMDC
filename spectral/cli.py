@@ -19,6 +19,7 @@ try:
     from spectral import filters as filters_module
     from spectral.energyConverter import electromagnetic_conversion, get_conversion_factors
     from spectral.slap import create_slap2_votables_from_species, create_slap2_votables_from_lines
+    from spectral.logging_config import set_log_level, get_log_level, LogLevel, configure_python_logging
 except ImportError:
     # Fall back to absolute imports (when run as console script)
     from pyVAMDC.spectral import species as species_module
@@ -26,9 +27,9 @@ except ImportError:
     from pyVAMDC.spectral import filters as filters_module
     from pyVAMDC.spectral.energyConverter import electromagnetic_conversion, get_conversion_factors
     from pyVAMDC.spectral.slap import create_slap2_votables_from_species, create_slap2_votables_from_lines
+    from pyVAMDC.spectral.logging_config import set_log_level, get_log_level, LogLevel, configure_python_logging
 
-# Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# Default logging configuration (will be reconfigured based on CLI flags)
 logger = logging.getLogger(__name__)
 
 
@@ -362,15 +363,31 @@ def normalize_unit(unit: str) -> Optional[str]:
 
 
 @click.group()
-@click.option('--verbose', '-v', is_flag=True, help='Enable verbose output')
+@click.option('--quiet', '-q', is_flag=True, help='Minimal output (errors as one-liners, ideal for AI agents)')
+@click.option('--verbose', '-v', is_flag=True, help='Detailed output with context')
+@click.option('--debug', is_flag=True, help='Full debug output with tracebacks')
 @click.pass_context
-def cli(ctx: click.Context, verbose: bool):
+def cli(ctx: click.Context, quiet: bool, verbose: bool, debug: bool):
     """VAMDC CLI - Query atomic and molecular spectroscopic data."""
     ctx.ensure_object(dict)
-    ctx.obj['verbose'] = verbose
-
-    if verbose:
-        logger.setLevel(logging.DEBUG)
+    
+    # Determine log level (last flag wins if multiple specified)
+    if debug:
+        log_level = LogLevel.DEBUG
+    elif verbose:
+        log_level = LogLevel.VERBOSE
+    elif quiet:
+        log_level = LogLevel.MINIMAL
+    else:
+        log_level = LogLevel.NORMAL
+    
+    # Set global log level
+    set_log_level(log_level)
+    ctx.obj['log_level'] = log_level
+    ctx.obj['verbose'] = (log_level in (LogLevel.VERBOSE, LogLevel.DEBUG))
+    
+    # Configure Python's logging module
+    configure_python_logging()
 
 
 @cli.group()
@@ -590,7 +607,6 @@ def lines(ctx: click.Context, inchikey: tuple, node: tuple, lambda_min: float,
             lambdaMax=lambda_max,
             species_dataframe=filtered_species_df,
             nodes_dataframe=filtered_nodes_df,
-            verbose=ctx.obj.get('verbose', False),
             acceptTruncation=accept_truncation
         )
 
@@ -711,8 +727,8 @@ def lines(ctx: click.Context, inchikey: tuple, node: tuple, lambda_min: float,
 
     except Exception as e:
         click.echo(f"Error: {e}", err=True)
-        import traceback
-        if ctx.obj.get('verbose', False):
+        if ctx.obj.get('log_level', LogLevel.NORMAL) == LogLevel.DEBUG:
+            import traceback
             traceback.print_exc()
         sys.exit(1)
 
@@ -811,8 +827,7 @@ def count_lines(ctx: click.Context, inchikey: tuple, node: tuple, lambda_min: fl
             lambdaMin=lambda_min,
             lambdaMax=lambda_max,
             species_dataframe=filtered_species_df,
-            nodes_dataframe=filtered_nodes_df,
-            verbose=ctx.obj.get('verbose', False)
+            nodes_dataframe=filtered_nodes_df
         )
 
         if not metadata_list:
@@ -849,8 +864,8 @@ def count_lines(ctx: click.Context, inchikey: tuple, node: tuple, lambda_min: fl
 
     except Exception as e:
         click.echo(f"Error: {e}", err=True)
-        import traceback
-        if ctx.obj.get('verbose', False):
+        if ctx.obj.get('log_level', LogLevel.NORMAL) == LogLevel.DEBUG:
+            import traceback
             traceback.print_exc()
         sys.exit(1)
 
@@ -990,7 +1005,7 @@ def convert_energy(ctx: click.Context, value: float, from_unit: str, to_unit: st
         sys.exit(1)
     except Exception as e:
         click.echo(f"Error: Unexpected error during conversion: {e}", err=True)
-        if ctx.obj.get('verbose', False):
+        if ctx.obj.get('log_level', LogLevel.NORMAL) == LogLevel.DEBUG:
             import traceback
             traceback.print_exc()
         sys.exit(1)

@@ -58,7 +58,134 @@ vamdc
 
 ## Global Options
 
-- `--verbose, -v`: Enable verbose output with detailed logging
+The CLI supports configurable verbosity levels to control error output depth, making it suitable for both interactive use and AI agent consumption.
+
+### Verbosity Flags (Mutually Exclusive)
+
+- `--quiet, -q`: **Minimal output** - Errors as one-liners only, ideal for AI agents to avoid context saturation
+- `--verbose, -v`: **Detailed output** - Verbose logging with context and detailed messages
+- `--debug`: **Full debug output** - Complete tracebacks and debug information
+
+**Default behavior**: NORMAL mode (standard error messages without traceback)
+
+### Output Levels Explained
+
+| Level | Flag | Error Display | Use Case |
+|-------|------|---------------|----------|
+| **SILENT** | Set via `VAMDC_LOG_LEVEL=SILENT` | No errors shown | Automated scripts requiring clean output |
+| **MINIMAL** | `--quiet` or `-q` | One-line summaries: `Error: Failed to convert InChI: ValueError` | AI agents, minimal context |
+| **NORMAL** | (default) | Formatted errors with exception type and message | Interactive terminal use |
+| **VERBOSE** | `--verbose` or `-v` | Detailed context including module names | Debugging data queries |
+| **DEBUG** | `--debug` | Full stack traces with complete tracebacks | Development and troubleshooting |
+
+### Environment Variable Control
+
+You can also control logging via the `VAMDC_LOG_LEVEL` environment variable:
+
+```bash
+# Silent mode (no errors displayed)
+export VAMDC_LOG_LEVEL=SILENT
+vamdc get species
+
+# Minimal mode (one-line errors)
+export VAMDC_LOG_LEVEL=MINIMAL
+vamdc get species
+
+# Normal mode (default)
+export VAMDC_LOG_LEVEL=NORMAL
+vamdc get species
+
+# Verbose mode (detailed context)
+export VAMDC_LOG_LEVEL=VERBOSE
+vamdc get species
+
+# Debug mode (full tracebacks)
+export VAMDC_LOG_LEVEL=DEBUG
+vamdc get species
+```
+
+**Note**: CLI flags override environment variables. For example:
+```bash
+export VAMDC_LOG_LEVEL=DEBUG
+vamdc --quiet get species  # Uses MINIMAL (--quiet overrides environment)
+```
+
+### Examples by Verbosity Level
+
+#### Minimal Output (AI-Friendly)
+```bash
+# Perfect for AI agents - minimal context, clean output
+vamdc --quiet get species
+vamdc -q get lines --inchikey=LFQSCWFLJHTTHZ-UHFFFAOYSA-N --lambda-min=3000 --lambda-max=5000
+
+# Error output in MINIMAL mode:
+# Error: Failed to convert InChI: ValueError
+```
+
+#### Normal Output (Default)
+```bash
+# Standard interactive use
+vamdc get species
+vamdc get lines --inchikey=LFQSCWFLJHTTHZ-UHFFFAOYSA-N --lambda-min=3000 --lambda-max=5000
+
+# Error output in NORMAL mode:
+# ERROR - Failed to convert InChI: InChI=1S/... from node ivo://vamdc/basecol
+#   ValueError: Invalid InChI structure
+```
+
+#### Verbose Output (Detailed Context)
+```bash
+# Detailed logging for monitoring queries
+vamdc --verbose get lines --inchikey=LFQSCWFLJHTTHZ-UHFFFAOYSA-N --lambda-min=3000 --lambda-max=5000
+vamdc -v count lines --lambda-min=3000 --lambda-max=5000
+
+# Error output in VERBOSE mode:
+# ERROR - Error in species: Failed to convert InChI: InChI=1S/... from node ivo://vamdc/basecol
+#   Exception type: ValueError
+#   Exception message: Invalid InChI structure
+```
+
+#### Debug Output (Full Tracebacks)
+```bash
+# Complete debugging information with stack traces
+vamdc --debug get lines --inchikey=LFQSCWFLJHTTHZ-UHFFFAOYSA-N --lambda-min=3000 --lambda-max=5000
+
+# Error output in DEBUG mode includes full traceback:
+# ERROR - Error in species: Failed to convert InChI: InChI=1S/... from node ivo://vamdc/basecol
+#   Exception type: ValueError
+#   Exception message: Invalid InChI structure
+# Traceback:
+#   File "species.py", line 558, in addComputedChemicalInfo
+#     number_unique_atoms, ... = getChemicalInformationsFromInchi(inchi)
+#   File "species.py", line 523, in getChemicalInformationsFromInchi
+#     mol = Chem.MolFromInchi(inchi, sanitize=False, removeHs=False)
+# ValueError: Invalid InChI structure
+```
+
+### When to Use Each Level
+
+**Use `--quiet` when:**
+- Running automated scripts
+- Feeding output to AI agents (prevents context overflow)
+- You only care about results, not error details
+- Piping output to other commands
+
+**Use default (no flag) when:**
+- Interactive terminal sessions
+- Normal data queries
+- You want to see errors but not overwhelming detail
+
+**Use `--verbose` when:**
+- Monitoring long-running queries
+- You want to understand what the CLI is doing
+- Debugging data availability issues
+- Learning how queries are processed
+
+**Use `--debug` when:**
+- Developing or troubleshooting
+- Reporting bugs (full stack traces help developers)
+- Investigating unexpected behavior
+- You need complete diagnostic information
 
 ## Commands
 
@@ -822,13 +949,52 @@ The CLI automatically caches downloaded data to avoid redundant network requests
 
 ## Environment Variables
 
-- `VAMDC_CACHE_DIR`: Override default cache directory location
+### `VAMDC_CACHE_DIR`
+Override default cache directory location.
 
 **Example:**
 ```bash
 export VAMDC_CACHE_DIR=~/my_vamdc_cache
 vamdc get species  # Uses ~/my_vamdc_cache/
 ```
+
+### `VAMDC_LOG_LEVEL`
+Control logging verbosity globally without using CLI flags.
+
+**Supported values:** `SILENT`, `MINIMAL`, `NORMAL`, `VERBOSE`, `DEBUG`
+
+**Examples:**
+```bash
+# Silent mode - no error messages
+export VAMDC_LOG_LEVEL=SILENT
+vamdc get species
+
+# Minimal mode - one-line errors (ideal for AI agents)
+export VAMDC_LOG_LEVEL=MINIMAL
+vamdc get lines --inchikey=...
+
+# Normal mode - standard error messages (default)
+export VAMDC_LOG_LEVEL=NORMAL
+vamdc get species
+
+# Verbose mode - detailed logging
+export VAMDC_LOG_LEVEL=VERBOSE
+vamdc count lines --lambda-min=1000 --lambda-max=2000
+
+# Debug mode - full tracebacks
+export VAMDC_LOG_LEVEL=DEBUG
+vamdc get lines --inchikey=...
+```
+
+**Combining with cache directory:**
+```bash
+# Set both environment variables
+export VAMDC_CACHE_DIR=~/my_vamdc_cache
+export VAMDC_LOG_LEVEL=MINIMAL
+vamdc get species
+```
+
+**Note:** CLI flags (`--quiet`, `--verbose`, `--debug`) override the `VAMDC_LOG_LEVEL` environment variable.
 
 ## Finding Species InChIKeys
 
@@ -1489,13 +1655,25 @@ vamdc cache clear
 vamdc get species --refresh  # Rebuild cache
 ```
 
-### Enable verbose output
+### Enable verbose output or debug mode
 
-For debugging, use the `--verbose` flag at the beginning:
+For troubleshooting, use the `--verbose` or `--debug` flags:
 
 ```bash
+# Verbose mode - detailed context and logging
 vamdc --verbose get lines --inchikey=... --node=... --lambda-min=... --lambda-max=...
+
+# Debug mode - full stack traces and diagnostic information
+vamdc --debug get lines --inchikey=... --node=... --lambda-min=... --lambda-max=...
+
+# Quiet mode - minimal output (useful for checking if command succeeds)
+vamdc --quiet get lines --inchikey=... --node=... --lambda-min=... --lambda-max=...
 ```
+
+**When debugging:**
+1. Start with `--verbose` to see what's happening
+2. Use `--debug` if you need full tracebacks
+3. Check the error messages for specific issues (node not found, invalid InChIKey, etc.)
 
 ### Query takes too long
 
@@ -1594,6 +1772,130 @@ The CLI uses high-level wrapper functions:
 - `lines_module._build_and_run_wrappings()` - Internal parallel processing
 
 These provide better performance and flexibility compared to direct `VamdcQuery` instantiation.
+
+## Logging System Architecture
+
+The CLI uses a sophisticated, configurable logging system designed to adapt output verbosity for different use cases, from AI agents requiring minimal context to developers needing full diagnostic information.
+
+### Core Components
+
+#### 1. **LogLevel Enum** (`spectral/logging_config.py`)
+Defines five verbosity levels:
+```python
+class LogLevel(Enum):
+    SILENT = 0    # No output except results
+    MINIMAL = 1   # One-line error summaries
+    NORMAL = 2    # Standard error messages (default)
+    VERBOSE = 3   # Detailed messages with context
+    DEBUG = 4     # Full tracebacks
+```
+
+#### 2. **SmartLogger Class**
+Context-aware logger that adapts its output based on the global log level:
+- **SILENT**: No error output
+- **MINIMAL**: `Error: {message}: {ExceptionType}` to stderr
+- **NORMAL**: Formatted logging with exception details
+- **VERBOSE**: Detailed context including module names
+- **DEBUG**: Complete stack traces
+
+#### 3. **Global Configuration**
+The logging system can be configured via:
+- **CLI flags**: `--quiet`, `--verbose`, `--debug` (highest priority)
+- **Environment variable**: `VAMDC_LOG_LEVEL` (fallback)
+- **Default**: `NORMAL` mode
+
+### Error Handling Pattern
+
+All errors in the codebase follow this pattern:
+
+```python
+from pyVAMDC.spectral.logging_config import get_logger
+
+LOGGER = get_logger(__name__)
+
+try:
+    # Operation that might fail
+    result = risky_operation()
+except SpecificException as e:
+    LOGGER.error(
+        "Clear description of what failed",
+        exception=e,
+        show_traceback=False  # Set to True for unexpected errors
+    )
+    # Handle gracefully
+```
+
+### Module Integration
+
+**Modified modules:**
+- `spectral/species.py`: Replaced print() and bare except clauses with SmartLogger
+- `spectral/vamdcQuery.py`: Removed `_display_message()` function and `verbose` parameter; replaced with SmartLogger
+- `spectral/lines.py`: Removed `verbose` parameter from all functions; updated print() to logger.info()
+- `spectral/cli.py`: Integrated verbosity flags (--quiet, --verbose, --debug) and traceback control
+
+**Key API Changes:**
+- ✅ Removed `verbose` boolean parameter from `VamdcQuery.__init__()`, `getLines()`, `get_metadata_for_lines()`, and `getLinesByTelescopeBand()`
+- ✅ Logging verbosity now controlled globally via CLI flags or `VAMDC_LOG_LEVEL` environment variable
+- ✅ Debug messages (query creation, splitting, status) controlled by log level instead of function parameters
+
+### For Developers
+
+When adding new functions that might generate errors:
+
+```python
+from pyVAMDC.spectral.logging_config import get_logger
+
+LOGGER = get_logger(__name__)
+
+def your_function():
+    try:
+        # Your code
+        pass
+    except ValueError as e:
+        # Known error type - don't show traceback
+        LOGGER.error(
+            f"Invalid value for parameter X: {value}",
+            exception=e,
+            show_traceback=False
+        )
+    except Exception as e:
+        # Unexpected error - show traceback in DEBUG mode
+        LOGGER.error(
+            f"Unexpected error in your_function",
+            exception=e,
+            show_traceback=True
+        )
+```
+
+### Benefits
+
+✅ **AI-Friendly**: `--quiet` mode prevents context saturation for AI agents  
+✅ **User-Friendly**: Default mode balances information and clarity  
+✅ **Developer-Friendly**: `--debug` mode provides complete diagnostic information  
+✅ **Consistent**: All modules use the same logging system  
+✅ **Flexible**: Control via CLI, environment variables, or programmatically  
+
+### Testing Logging Levels
+
+Test different verbosity levels:
+
+```bash
+# Silent mode - no errors shown
+export VAMDC_LOG_LEVEL=SILENT
+vamdc get species
+
+# Minimal mode - one-line errors
+vamdc --quiet get species
+
+# Normal mode - standard errors
+vamdc get species
+
+# Verbose mode - detailed logging
+vamdc --verbose get species
+
+# Debug mode - full tracebacks
+vamdc --debug get species
+```
 
 ## Acknowledgments
 

@@ -3,6 +3,9 @@ import multiprocessing
 from enum import Enum
 import pyVAMDC.spectral.species as species
 import pyVAMDC.spectral.vamdcQuery as vamdcQuery
+from pyVAMDC.spectral.logging_config import get_logger
+
+LOGGER = get_logger(__name__)
 
 
 class telescopeBands(Enum):
@@ -83,7 +86,7 @@ def getTelescopeBandFromLine(wavelength):
 
 
 
-def getLinesByTelescopeBand(band:telescopeBands, species_dataframe = None, nodes_dataframe = None, verbose = False):
+def getLinesByTelescopeBand(band:telescopeBands, species_dataframe = None, nodes_dataframe = None):
     """
     Extract all the spectroscopic lines for a given telescope band. 
 
@@ -103,10 +106,8 @@ def getLinesByTelescopeBand(band:telescopeBands, species_dataframe = None, nodes
             restrict the extraction of the lines to the databases (VAMDC nodes) contained into the nodes_dataframe.
             The nodes_dataframe is typically built by the function 'getNodeHavingSpecies' in the 'species' module, optionally 
             filtered using the functions in the 'filters' module and/or Pandas functionalities. 
-            Default None. In this case there is no restriction on the Nodes. 
+            Default None. In this case there is no restriction on the Nodes.
         
-        verbose : boolean
-            If True, display verbose logs. 
         acceptTruncation : boolean
             If True, queries that are reported as truncated will be accepted (not split)
             and included and exectuted as-is. If False (default), truncated queries are recursively split into sub-queries
@@ -121,7 +122,7 @@ def getLinesByTelescopeBand(band:telescopeBands, species_dataframe = None, nodes
             A dictionary containing the extracted lines for molecular species, grouped by databases. The keys of this dictionary is the database 
             identifier (nodeIdentifier) and the value is a datafrale containing the spectroscopic lines extracted from that database.
     """
-    return getLines(band.lambdaMin, band.lambdaMax, species_dataframe=species_dataframe, nodes_dataframe=nodes_dataframe, verbose=verbose)
+    return getLines(band.lambdaMin, band.lambdaMax, species_dataframe=species_dataframe, nodes_dataframe=nodes_dataframe)
 
 
 
@@ -140,16 +141,15 @@ class _VAMDCQueryParallelWrapping:
             the inf boundary (in Angstrom) of the wavelenght interval
         
         lambdaMax : float
-            the sup boundary (in Angstrom) of the wavelenght interval  
+            the sup boundary (in Angstrom) of the wavelenght interval
         
-        verbose : boolean
-            If True, display verbose logs. 
+        acceptTruncation : boolean
+            If True, accept truncated query results. If False, split queries recursively.
     """
-    def __init__(self, localDataFrame, lambdaMin, lambdaMax, verbose, acceptTruncation):
+    def __init__(self, localDataFrame, lambdaMin, lambdaMax, acceptTruncation):
         self.local_df = localDataFrame
         self.lambdaMin = lambdaMin
         self.lambdaMax = lambdaMax
-        self.verbose = verbose
         self.acceptTruncation = acceptTruncation
 
     def parallelMethod(self):
@@ -166,7 +166,7 @@ class _VAMDCQueryParallelWrapping:
             speciesType = row["speciesType"]
 
             # for each row of the data-frame we create a VamdcQuery instance
-            vamdcQuery.VamdcQuery(nodeEndpoint,self.lambdaMin,self.lambdaMax, InChIKey, speciesType, listOfQueries, self.verbose, self.acceptTruncation)
+            vamdcQuery.VamdcQuery(nodeEndpoint,self.lambdaMin,self.lambdaMax, InChIKey, speciesType, listOfQueries, self.acceptTruncation)
 
         return listOfQueries
 
@@ -179,7 +179,7 @@ def _process_instance(instance):
     return instance.parallelMethod()
 
 
-def _build_and_run_wrappings(lambdaMin, lambdaMax, species_dataframe, nodes_dataframe, verbose, accept_truncation) -> list:
+def _build_and_run_wrappings(lambdaMin, lambdaMax, species_dataframe, nodes_dataframe, accept_truncation) -> list:
      # if the provided species_dataframe is not provided, we build it by taking all the species
     if species_dataframe is None:
         species_dataframe , _ = species.getAllSpecies()
@@ -202,7 +202,7 @@ def _build_and_run_wrappings(lambdaMin, lambdaMax, species_dataframe, nodes_data
 
     # Loop over the list of dataFrame, for each element we create an instance of the wrapper to be added to the list of wrapping
     for current_df in df_list:
-        instance = _VAMDCQueryParallelWrapping(current_df, lambdaMin, lambdaMax, verbose, accept_truncation)
+        instance = _VAMDCQueryParallelWrapping(current_df, lambdaMin, lambdaMax, accept_truncation)
 
         wrappingInstances.append(instance) 
     
@@ -228,7 +228,7 @@ def _build_and_run_wrappings(lambdaMin, lambdaMax, species_dataframe, nodes_data
     return listOfAllQueries
 
 
-def get_metadata_for_lines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = None, verbose = False):
+def get_metadata_for_lines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = None):
     """
         Collect metadata for queries in a wavelength interval.
 
@@ -251,16 +251,13 @@ def get_metadata_for_lines(lambdaMin, lambdaMax, species_dataframe = None, nodes
                 restrict the processing to the databases (VAMDC nodes) contained into this dataframe.
                 If None, all nodes that have species are used.
 
-            verbose : boolean, optional
-                If True, display verbose logs.
-
         Returns:
             metadata_list : list
                 A list of dictionaries, one per sub-query, where each dictionary contains:
                     - 'query': the query URL/string that will be executed
                     - 'response': the HEAD response metadata (as stored on the VamdcQuery instance)
         """
-    listOfAllQueries = _build_and_run_wrappings(lambdaMin, lambdaMax, species_dataframe, nodes_dataframe, verbose, True)
+    listOfAllQueries = _build_and_run_wrappings(lambdaMin, lambdaMax, species_dataframe, nodes_dataframe, True)
 
     # build list of dictionaries with keys 'query' and 'response'
     metadata_list = []
@@ -275,7 +272,7 @@ def get_metadata_for_lines(lambdaMin, lambdaMax, species_dataframe = None, nodes
 
 
 
-def getLines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = None, verbose = False, acceptTruncation = False):
+def getLines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = None, acceptTruncation = False):
     """
     Extract all the spectroscopic lines in a given wavelenght interval. 
 
@@ -296,10 +293,10 @@ def getLines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = N
             restrict the extraction of the lines to the databases (VAMDC nodes) contained into the nodes_dataframe.
             The nodes_dataframe is typically built by the function 'getNodeHavingSpecies' in the 'species' module, optionally 
             filtered using the functions in the 'filters' module and/or Pandas functionalities. 
-            Default None. In this case there is no restriction on the Nodes. 
+            Default None. In this case there is no restriction on the Nodes.
         
-        verbose : boolean
-            If True, display verbose logs. 
+        acceptTruncation : boolean
+            If True, accept truncated query results. If False, split queries recursively.
   
     Returns:
         atomic_results_dict : dictionary
@@ -319,9 +316,9 @@ def getLines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = N
                 - 'vamdcCall': the VAMDC query URL
                 - 'XSAMS_file_path': the path to the downloaded XSAMS file
     """
-    listOfAllQueries = _build_and_run_wrappings(lambdaMin, lambdaMax, species_dataframe, nodes_dataframe, verbose, acceptTruncation)
+    listOfAllQueries = _build_and_run_wrappings(lambdaMin, lambdaMax, species_dataframe, nodes_dataframe, acceptTruncation)
 
-    print("total amount of sub-queries to be submitted "+str(len(listOfAllQueries)))
+    LOGGER.info(f"Total amount of sub-queries to be submitted: {len(listOfAllQueries)}")
 
     # At this point the list listOfAllQueries contains all the query that can be run without truncation
     # For each query in the list, we get the data, and convert the data into a Pandas dataframe
@@ -367,10 +364,10 @@ def getLines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = N
     
     
     if not(atomic_results_dict) :
-        print("no atomic data to fetch")
+        LOGGER.info("No atomic data to fetch")
 
     if not(molecular_results_dict):
-        print("no molecular data to fetch")
+        LOGGER.info("No molecular data to fetch")
 
     # we return the three results: atomic, molecular dictionaries and queries metadata list
     return atomic_results_dict, molecular_results_dict, queries_metadata_list
