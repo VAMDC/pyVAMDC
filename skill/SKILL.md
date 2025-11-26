@@ -104,6 +104,7 @@ vamdc --quiet count lines \
 
 **Step 3: Download lines**
 
+Units for lambda to be sumbitted are in Angstrom.
 ```bash
 vamdc --quiet get lines \
   --inchikey=FYYHWMGAXLPEAU-UHFFFAOYSA-N \
@@ -112,6 +113,18 @@ vamdc --quiet get lines \
   --lambda-max=5000 \
   --format csv \
   --output mg_lines.csv
+```
+If you need to convert units to submit the previous query in Angstrom, you can use 
+```bash
+# Convert 500 nanometers to angstrom
+vamdc convert energy 500 --from-unit=nanometer --to-unit=angstrom
+
+# Convert 1.5 eV to angstrom
+vamdc convert energy 1.5 --from-unit=eV --to-unit=angstrom
+
+
+# Convert frequency to wavelength in angstrom
+vamdc convert energy 100 --from-unit=gigahertz --to-unit=angstrom
 ```
 
 ### 3. Output Formats
