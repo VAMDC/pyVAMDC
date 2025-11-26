@@ -39,7 +39,13 @@ Run commands using:
 uvx --from . vamdc [COMMAND]
 ```
 
-the file pyVAMDC/CLI.md contains the full documentation of this command. 
+**For AI agents:** Always use the `--quiet` flag to minimize output and avoid context saturation:
+
+```bash
+uvx --from . vamdc --quiet [COMMAND]
+```
+
+The file pyVAMDC/CLI.md contains the full documentation of this command. 
 
 ## Core Workflows
 
@@ -48,24 +54,22 @@ the file pyVAMDC/CLI.md contains the full documentation of this command.
 List all VAMDC nodes (databases):
 
 ```bash
-vamdc get nodes  # prints to stdout
-vamdc get nodes --format csv --output nodes.csv
+vamdc --quiet get nodes --format csv --output nodes.csv
 ```
 
 List all species in the database:
 
 ```bash
-vamdc get species # prints to stdout
-vamdc get species --format csv --output species.csv
-vamdc get species --format excel --output species.xlsx
+vamdc --quiet get species --format csv --output species.csv
+vamdc --quiet get species --format excel --output species.xlsx
 ```
 
 Filter species by name or other criteria:
 
 ```bash
-vamdc get species --filter-by "name:CO"
-vamdc get species --filter-by "name:H2O"
-vamdc get species --filter-by "massNumber:100-200"
+vamdc --quiet get species --filter-by "name:CO" --format csv --output co_species.csv
+vamdc --quiet get species --filter-by "name:H2O" --format csv --output h2o_species.csv
+vamdc --quiet get species --filter-by "massNumber:100-200" --format csv --output species_filtered.csv
 ```
 
 Species and nodes are cached, see `vamdc cache status`.
@@ -77,8 +81,8 @@ Species and nodes are cached, see `vamdc cache status`.
 **Step 1: Find InChIKey**
 
 ```bash
-vamdc get species --filter-by "name:Magnesium"
-# Extract the InChIKey from output
+vamdc --quiet get species --filter-by "name:Magnesium" --format csv --output mg_species.csv
+# Extract the InChIKey from output file
 ```
 
 **Step 2 (optional): Preview data before downloading**
@@ -91,7 +95,7 @@ If the database contains the species, we can continue:
 To check how many lines will be retrieved without downloading full data:
 
 ```bash
-vamdc count lines \
+vamdc --quiet count lines \
   --inchikey=FYYHWMGAXLPEAU-UHFFFAOYSA-N \
   --node=vald \
   --lambda-min=2500 \
@@ -101,7 +105,7 @@ vamdc count lines \
 **Step 3: Download lines**
 
 ```bash
-vamdc get lines \
+vamdc --quiet get lines \
   --inchikey=FYYHWMGAXLPEAU-UHFFFAOYSA-N \
   --node=vald \
   --lambda-min=2500 \
@@ -142,7 +146,8 @@ The `--node` parameter accepts multiple formats:
 Retrieve available nodes:
 
 ```bash
-vamdc get nodes --format csv | grep -i "keyword"
+vamdc --quiet get nodes --format csv --output nodes.csv
+grep -i "keyword" nodes.csv
 ```
 
 ### Finding InChIKeys
@@ -152,14 +157,14 @@ InChI (International Chemical Identifier) is a standardized representation of mo
 To find an InChIKey for a species:
 
 ```bash
-vamdc get species --filter-by "name:CO"
-# Look for the "InChIKey" column in output
+vamdc --quiet get species --filter-by "name:CO" --format csv --output co_species.csv
+# Look for the "InChIKey" column in output file
 ```
 
-Or download and search locally:
+Or download all species and search locally:
 
 ```bash
-vamdc get species --format csv --output species.csv
+vamdc --quiet get species --format csv --output species.csv
 grep -i "your_species_name" species.csv
 ```
 
@@ -182,8 +187,8 @@ vamdc cache clear
 **Force refresh without clearing:**
 
 ```bash
-vamdc get species --refresh
-vamdc get nodes --refresh
+vamdc --quiet get species --refresh --format csv --output species.csv
+vamdc --quiet get nodes --refresh --format csv --output nodes.csv
 ```
 
 **Override cache location:**
@@ -194,16 +199,19 @@ export VAMDC_CACHE_DIR=/path/to/custom/cache
 
 ## Debugging
 
-**Enable verbose output:**
+**For human debugging only, enable verbose output:**
 
 ```bash
 vamdc --verbose get lines --inchikey=... --node=...
+vamdc --debug get lines --inchikey=... --node=...  # Full tracebacks
 ```
+
+**Note:** AI agents should always use `--quiet` mode and never use `--verbose` or `--debug`.
 
 **Common issues:**
 
-- **"Node not found"**: Run `vamdc get nodes` to verify node name/ID
-- **"No species with InChIKey"**: Verify InChIKey is correct via `vamdc get species`
+- **"Node not found"**: Run `vamdc --quiet get nodes --format csv --output nodes.csv` to verify node name/ID
+- **"No species with InChIKey"**: Verify InChIKey via `vamdc --quiet get species --format csv --output species.csv`
 - **Unexpected cache behavior**: Clear cache with `vamdc cache clear`
 
 **View full command help:**
@@ -223,12 +231,12 @@ See `references/parameter_guide.md` for detailed parameter descriptions, wavelen
 
 **Get all carbon monoxide lines from a specific node:**
 
-1. Find InChIKey: `vamdc get species --filter-by "name:CO"`
-2. Query: `vamdc get lines --inchikey=LFQSCWFLJHTTHZ-UHFFFAOYSA-N --node=hitran --format csv --output co_lines.csv`
+1. Find InChIKey: `vamdc --quiet get species --filter-by "name:CO" --format csv --output co_species.csv`
+2. Query: `vamdc --quiet get lines --inchikey=LFQSCWFLJHTTHZ-UHFFFAOYSA-N --node=hitran --format csv --output co_lines.csv`
 
 **Build a spectral catalog across multiple nodes:**
 
-1. Get species list: `vamdc get species --format csv --output species.csv`
+1. Get species list: `vamdc --quiet get species --format csv --output species.csv`
 2. For each species of interest, query multiple nodes and aggregate results
 3. Use postprocessing (Python/awk/etc.) to combine and filter
 
