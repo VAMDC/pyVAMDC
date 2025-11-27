@@ -42,7 +42,7 @@ uvx --from . vamdc [COMMAND]
 **For AI agents:** Always use the `--quiet` flag to minimize output and avoid context saturation:
 
 ```bash
-uvx --from . vamdc --quiet [COMMAND]
+uvx --from . vamdc --quiet [COMMAND] 2>vamdc_errors.log
 ```
 
 The file pyVAMDC/CLI.md contains the full documentation of this command. 
@@ -54,22 +54,22 @@ The file pyVAMDC/CLI.md contains the full documentation of this command.
 List all VAMDC nodes (databases):
 
 ```bash
-vamdc --quiet get nodes --format csv --output nodes.csv
+vamdc --quiet get nodes --format csv --output nodes.csv 2>vamdc_errors.log
 ```
 
 List all species in the database:
 
 ```bash
-vamdc --quiet get species --format csv --output species.csv
-vamdc --quiet get species --format excel --output species.xlsx
+vamdc --quiet get species --format csv --output species.csv 2>vamdc_errors.log
+vamdc --quiet get species --format excel --output species.xlsx 2>vamdc_errors.log
 ```
 
 Filter species by name or other criteria:
 
 ```bash
-vamdc --quiet get species --filter-by "name:CO" --format csv --output co_species.csv
-vamdc --quiet get species --filter-by "name:H2O" --format csv --output h2o_species.csv
-vamdc --quiet get species --filter-by "massNumber:100-200" --format csv --output species_filtered.csv
+vamdc --quiet get species --filter-by "name:CO" --format csv --output co_species.csv 2>vamdc_errors.log
+vamdc --quiet get species --filter-by "name:H2O" --format csv --output h2o_species.csv 2>vamdc_errors.log
+vamdc --quiet get species --filter-by "massNumber:100-200" --format csv --output species_filtered.csv 2>vamdc_errors.log
 ```
 
 Species and nodes are cached, see `vamdc cache status`.
@@ -81,7 +81,7 @@ Species and nodes are cached, see `vamdc cache status`.
 **Step 1: Find InChIKey**
 
 ```bash
-vamdc --quiet get species --filter-by "name:Magnesium" --format csv --output mg_species.csv
+vamdc --quiet get species --filter-by "name:Magnesium" --format csv --output mg_species.csv 2>vamdc_errors.log
 # Extract the InChIKey from output file
 ```
 
@@ -100,6 +100,7 @@ vamdc --quiet count lines \
   --node=vald \
   --lambda-min=2500 \
   --lambda-max=5000
+  2>vamdc_errors.log
 ```
 
 **Step 3: Download lines**
@@ -113,6 +114,7 @@ vamdc --quiet get lines \
   --lambda-max=5000 \
   --format csv \
   --output mg_lines.csv
+  2>vamdc_errors.log
 ```
 If you need to convert units to submit the previous query in Angstrom, you can use 
 ```bash
@@ -170,14 +172,14 @@ InChI (International Chemical Identifier) is a standardized representation of mo
 To find an InChIKey for a species:
 
 ```bash
-vamdc --quiet get species --filter-by "name:CO" --format csv --output co_species.csv
+vamdc --quiet get species --filter-by "name:CO" --format csv --output co_species.csv 2>vamdc_errors.log
 # Look for the "InChIKey" column in output file
 ```
 
 Or download all species and search locally:
 
 ```bash
-vamdc --quiet get species --format csv --output species.csv
+vamdc --quiet get species --format csv --output species.csv 2>vamdc_errors.log
 grep -i "your_species_name" species.csv
 ```
 
@@ -200,8 +202,8 @@ vamdc cache clear
 **Force refresh without clearing:**
 
 ```bash
-vamdc --quiet get species --refresh --format csv --output species.csv
-vamdc --quiet get nodes --refresh --format csv --output nodes.csv
+vamdc --quiet get species --refresh --format csv --output species.csv 2>vamdc_errors.log
+vamdc --quiet get nodes --refresh --format csv --output nodes.csv 2>vamdc_errors.log
 ```
 
 **Override cache location:**
