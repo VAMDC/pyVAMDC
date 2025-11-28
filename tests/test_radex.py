@@ -24,9 +24,11 @@ def main():
         print(df_radex[['idRadex', 'fileName', 'specieTarget', 'specieCollider',
                         'symmetryTarget', 'symmetryCollider']])
 
-        # Display file URLs for all entries
-        all_urls = radex.displayFileUrls(df_radex)
-        print(f"\nReturned data structure with {len(all_urls)} entries")
+        # Display file URLs for the first entry
+        if len(df_radex) > 0:
+            urls = radex.displayFileUrls(df_radex, index=0)
+            print(f"\nReturned URLs: {urls}")
+
     else:
         print("\nNo RADEX entries found for the specified species.")
 
