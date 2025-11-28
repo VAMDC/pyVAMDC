@@ -415,6 +415,63 @@ class Radex:
 
         print(f"\nFile saved at: {save_path}")
 
+    def displayFileUrls(
+        self,
+        df_radex: pd.DataFrame
+    ) -> List[Dict[str, Any]]:
+        """
+        Display and return file URLs from all RADEX results.
+
+        Parameters:
+            df_radex (pd.DataFrame): DataFrame containing RADEX results
+
+        Returns:
+            list: List of dictionaries, each containing entry info and available URLs
+        """
+        if df_radex.empty:
+            logger.error("The DataFrame is empty")
+            return []
+
+        all_urls = []
+
+        for idx, row in df_radex.iterrows():
+            urls = {
+                'radex': row.get('radexFileUrl'),
+                'collision': row.get('collisionFileUrl'),
+                'spectro': row.get('spectroFileUrl')
+            }
+
+            print(f"\n{'=' * 60}")
+            print(f"Entry {idx}:")
+            print(f"  ID: {row.get('idRadex', 'N/A')}")
+            print(f"  File: {row.get('fileName', 'N/A')}")
+            print(f"  Target: {row.get('specieTarget', 'N/A')} (symmetry: {row.get('symmetryTarget', 'N/A')})")
+            print(f"  Collider: {row.get('specieCollider', 'N/A')} (symmetry: {row.get('symmetryCollider', 'N/A')})")
+            print(f"\n  Available URLs:")
+
+            available_urls = {}
+            for file_type, url in urls.items():
+                if url is not None and not pd.isna(url):
+                    print(f"    {file_type.capitalize()}: {url}")
+                    available_urls[file_type] = url
+                else:
+                    print(f"    {file_type.capitalize()}: Not available")
+
+            entry_info = {
+                'index': idx,
+                'idRadex': row.get('idRadex'),
+                'fileName': row.get('fileName'),
+                'specieTarget': row.get('specieTarget'),
+                'specieCollider': row.get('specieCollider'),
+                'urls': available_urls
+            }
+            all_urls.append(entry_info)
+
+        print(f"\n{'=' * 60}")
+        print(f"\nTotal entries: {len(all_urls)}")
+
+        return all_urls
+
     def extractBlob(
         self,
         results: pd.DataFrame,

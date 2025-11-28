@@ -24,8 +24,9 @@ def main():
         print(df_radex[['idRadex', 'fileName', 'specieTarget', 'specieCollider',
                         'symmetryTarget', 'symmetryCollider']])
 
-        # Export blob file interactively
-        radex.exportBlobConsole(df_radex, save_dir=".")
+        # Display file URLs for all entries
+        all_urls = radex.displayFileUrls(df_radex)
+        print(f"\nReturned data structure with {len(all_urls)} entries")
     else:
         print("\nNo RADEX entries found for the specified species.")
 
