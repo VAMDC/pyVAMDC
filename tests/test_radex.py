@@ -1,10 +1,10 @@
 from pyVAMDC.radex.radex import Radex
-from pyVAMDC.spectral.species import getSpeciesWithSearchCriteria
+from pyVAMDC.spectral.species import getSpeciesWithRestrictions
 
 def main():
     # Search species with stoichiometric formula
-    df_species_target, _ = getSpeciesWithSearchCriteria(stoichiometric_formula="AlCN")
-    df_species_collider, _ = getSpeciesWithSearchCriteria(stoichiometric_formula="H2")
+    df_species_target, _ = getSpeciesWithRestrictions(stoichiometric_formula="AlCN")
+    df_species_collider, _ = getSpeciesWithRestrictions(stoichiometric_formula="H2")
 
     print("Target species:")
     print(df_species_target[['InChIKey', 'stoichiometricFormula', 'name']])
