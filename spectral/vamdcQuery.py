@@ -5,23 +5,9 @@ import os
 from pathlib import Path
 import uuid
 import json
+from pyVAMDC.spectral.logging_config import get_logger
 
-def _display_message(messageToDisplay, wannaDisplay):
-  """
-  This function is used to display log messages in the console. 
-
-  Arguments
-  ---------
-
-  messageToDisplay : str
-    the log message to display
-
-  wannaDisplay : boolean
-    If true, the message is displayed. 
-
-  """
-  if wannaDisplay:
-     print(messageToDisplay)
+LOGGER = get_logger(__name__)
 
 class VamdcQuery:
     """
@@ -65,9 +51,6 @@ class VamdcQuery:
     localUUID : str
       A local (client side) unique identifer for the query
     
-    verbose : boolean
-      If this flag is true, detailed log information are displayed
-    
     acceptTruncation : boolean
       If this flag is false and the query is truncated, the query is recursively split into sub-queries until the sub-queries are not truncated anymore.
       If this flas is false and the query is truncated, the query is not split. 
@@ -89,7 +72,7 @@ class VamdcQuery:
     USER_AGENT_QUERY_STORE = 'VAMDC Query store'
     DEFAULT_USER_AGENT = 'pyVAMDC v0.1'
 
-    def __init__(self, nodeEndpoint, lambdaMin, lambdaMax, InchiKey, speciesType, totalListOfQueries, verbose = False, acceptTruncation = False):
+    def __init__(self, nodeEndpoint, lambdaMin, lambdaMax, InchiKey, speciesType, totalListOfQueries, acceptTruncation = False):
       """ This is the constructor of the VAMDCQuery class. 
       The subtlety consists in the fact that this constructor is recursive and takes as argument a list of VAMDCQuery instances already instanciated. 
       This design copes with a particularity of the VAMDC infrastructure: if the result of a given query generates too much data, the result may be truncated. 
@@ -114,10 +97,10 @@ class VamdcQuery:
 
       speciesType : str
         this attribute may take two values: 'molecule' or 'atom'. We need this flag because the processing 
-        to convert the VAMDC output to a Pandas dataframe depends on the species type. 
-
-      verbose : boolean
-      If this flag is true, detaile log information are displayed  
+        to convert the VAMDC output to a Pandas dataframe depends on the species type.
+      
+      acceptTruncation : boolean
+        If False, truncated queries are recursively split. If True, truncation is accepted.
       """
 
       self.nodeEndpoint = nodeEndpoint
@@ -129,14 +112,12 @@ class VamdcQuery:
       self.truncated = None
       self.XSAMSFileName = None
       self.localUUID = None
-      self.verbose = verbose
       self.acceptTruncation = acceptTruncation
       self.counts = {}
 
       self.localUUID = str(uuid.uuid4())
 
-      message = f"\nCreating {self.localUUID} ; l_min={lambdaMin} ; l_max={lambdaMax} ;  node ={nodeEndpoint} ; inchi={InchiKey}"
-      _display_message(message,verbose)
+      LOGGER.debug(f"Creating {self.localUUID} ; l_min={lambdaMin} ; l_max={lambdaMax} ; node={nodeEndpoint} ; inchi={InchiKey}")
 
       query = "select * where (RadTransWavelength >= {0} AND RadTransWavelength <= {1}) AND ((InchiKey = '{2}'))".format(lambdaMin, lambdaMax, InchiKey)
       self.vamdcCall = self.nodeEndpoint + "sync?LANG=VSS2&REQUEST=doQuery&FORMAT=XSAMS&QUERY="+query
@@ -162,16 +143,12 @@ class VamdcQuery:
               queryTruncation = response.headers.get("VAMDC-TRUNCATED")
               if queryTruncation is None or queryTruncation == '100' or  queryTruncation == "None":
                   self.truncated = False
-                  message = f"__status {self.localUUID} is not truncated"
-                    
-                  _display_message(message,verbose)
+                  LOGGER.debug(f"Status {self.localUUID}: not truncated")
               else:
                   self.truncated = True
-                  message = f"__status {self.localUUID} is truncated"
-                  _display_message(message,verbose)
+                  LOGGER.debug(f"Status {self.localUUID}: truncated")
           else:
-              message = f"__status {self.localUUID} has no data"
-              _display_message(message,verbose)
+              LOGGER.debug(f"Status {self.localUUID}: no data")
             
           # if the query has data
           if self.hasData is True:
@@ -179,8 +156,7 @@ class VamdcQuery:
             if (self.truncated is False) or self.acceptTruncation:
               # we add to the total list
               totalListOfQueries.append(self)
-              message = f"++++++++ {self.localUUID} added to the list of queries to execute"
-              _display_message(message,verbose)
+              LOGGER.debug(f"Query {self.localUUID} added to execution list")
 
             else:
               #if the query is truncated we split it in two
@@ -188,14 +164,23 @@ class VamdcQuery:
               newFirstLambdaMax = 0.5*(self.lambdaMax + self.lambdaMin)
               newSecondLambdaMin = newFirstLambdaMax
               newSecondLambdaMax = self.lambdaMax
-              message = f"-------> {self.localUUID} splitting ; l1_min ={newFirstLambdaMin}; l1_max={newFirstLambdaMax}; l2_min={newSecondLambdaMin}; l2_max={newSecondLambdaMax}"
-              _display_message(message,verbose)
-              VamdcQuery(self.nodeEndpoint, newFirstLambdaMin, newFirstLambdaMax, self.InchiKey, self.speciesType, totalListOfQueries, verbose=self.verbose)
-              VamdcQuery(self.nodeEndpoint, newSecondLambdaMin, newSecondLambdaMax, self.InchiKey, self.speciesType, totalListOfQueries, verbose=self.verbose)
+              LOGGER.debug(f"Splitting {self.localUUID}: l1=[{newFirstLambdaMin}, {newFirstLambdaMax}], l2=[{newSecondLambdaMin}, {newSecondLambdaMax}]")
+              VamdcQuery(self.nodeEndpoint, newFirstLambdaMin, newFirstLambdaMax, self.InchiKey, self.speciesType, totalListOfQueries, self.acceptTruncation)
+              VamdcQuery(self.nodeEndpoint, newSecondLambdaMin, newSecondLambdaMax, self.InchiKey, self.speciesType, totalListOfQueries, self.acceptTruncation)
                 
 
       except TimeoutError as e:
-        print("TimeOut error")
+        LOGGER.error(
+            f"Query timeout for {self.nodeEndpoint} (wavelength {lambdaMin}-{lambdaMax}, InChIKey {InchiKey})",
+            exception=e,
+            show_traceback=False
+        )
+      except Exception as e:
+        LOGGER.error(
+            f"Unexpected error querying {self.nodeEndpoint} (wavelength {lambdaMin}-{lambdaMax}, InChIKey {InchiKey})",
+            exception=e,
+            show_traceback=True
+        )
   
 
     def getXSAMSData(self):

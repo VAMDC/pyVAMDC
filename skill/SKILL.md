@@ -39,6 +39,30 @@ Run commands using:
 uvx --from . vamdc [COMMAND]
 ```
 
+**For AI agents - CRITICAL BEST PRACTICES:**
+
+1. **Always use `--quiet` flag** to minimize output and avoid context saturation
+2. **Always use count-then-get workflow** when searching for lines - never query lines directly without counting first
+3. **Always redirect stderr** (`2>errors.log`) to avoid RDKit warning clutter in logs
+
+```bash
+# ✓ CORRECT: Count first, then get only if lines exist
+uvx --from . vamdc --quiet count lines --inchikey=... --node=... 2>errors.log
+# If count > 0, then:
+uvx --from . vamdc --quiet get lines --inchikey=... --node=... 2>>errors.log
+
+# ✗ WRONG: Never query lines directly without counting first
+uvx --from . vamdc --quiet get lines --inchikey=... --node=...  # Wasteful!
+```
+
+**Suppressing stderr warnings:** The `--quiet` flag suppresses most output but not warnings from underlying libraries (like RDKit InChI conversion warnings). For cleaner logs when running programmatic queries, redirect stderr to a log file:
+
+```bash
+# Bash/shell commands
+vamdc --quiet get species --filter-by "name:CO" --format csv --output co_species.csv 2>vamdc_errors.log
+```
+
+The file pyVAMDC/CLI.md contains the full documentation of this command. 
 
 ## Core Workflows
 
@@ -47,61 +71,97 @@ uvx --from . vamdc [COMMAND]
 List all VAMDC nodes (databases):
 
 ```bash
-vamdc get nodes  # prints to stdout
-vamdc get nodes --format csv --output nodes.csv
+vamdc --quiet get nodes --format csv --output nodes.csv 2>vamdc_errors.log
 ```
 
 List all species in the database:
 
 ```bash
-vamdc get species # prints to stdout
-vamdc get species --format csv --output species.csv
-vamdc get species --format excel --output species.xlsx
+vamdc --quiet get species --format csv --output species.csv 2>vamdc_errors.log
+vamdc --quiet get species --format excel --output species.xlsx 2>vamdc_errors.log
 ```
 
 Filter species by name or other criteria:
 
 ```bash
-vamdc get species --filter-by "name:CO"
-vamdc get species --filter-by "name:H2O"
-vamdc get species --filter-by "massNumber:100-200"
+vamdc --quiet get species --filter-by "name:CO" --format csv --output co_species.csv 2>vamdc_errors.log
+vamdc --quiet get species --filter-by "name:H2O" --format csv --output h2o_species.csv 2>vamdc_errors.log
+vamdc --quiet get species --filter-by "massNumber:100-200" --format csv --output species_filtered.csv 2>vamdc_errors.log
 ```
 
 Species and nodes are cached, see `vamdc cache status`.
 
 ### 2. Query Spectral Lines
 
-**Workflow:** (1) Find species InChIKey, (2) optionally check data availability, (3) download lines.
+**Workflow:** (1) Find species InChIKey, (2) **ALWAYS count lines first**, (3) only then download lines if count > 0.
 
 **Step 1: Find InChIKey**
 
 ```bash
-vamdc get species --filter-by "name:Magnesium"
-# Extract the InChIKey from output
+vamdc --quiet get species --filter-by "name:Magnesium" --format csv --output mg_species.csv 2>errors.log
+# Extract the InChIKey from output file
 ```
 
-**Step 2 (optional): Preview data before downloading**
+**Step 2: ALWAYS count lines before downloading (MANDATORY for AI agents)**
 
-Check how many lines will be retrieved without downloading full data:
+From the result of the _vamdc get species_ you can check if a given species is present in a given database. 
+If the database does not contain the given species we are looking for, it is useless to query spectroscopic data on it. 
+
+**CRITICAL:** Always use `count lines` before `get lines`. The count command is lightweight (HEAD request only) and prevents wasteful downloads of empty datasets. This is especially important when iterating through many species.
+
+To check how many lines will be retrieved without downloading full data:
 
 ```bash
-vamdc count lines \
+vamdc --quiet count lines \
   --inchikey=FYYHWMGAXLPEAU-UHFFFAOYSA-N \
   --node=vald \
   --lambda-min=2500 \
-  --lambda-max=5000
+  --lambda-max=5000 \
+  2>vamdc_errors.log
 ```
 
-**Step 3: Download lines**
+**Step 3: Download lines (ONLY if count > 0)**
 
+**IMPORTANT:** Only proceed with `get lines` if the count from Step 2 showed radiative transitions exist.
+
+Units for lambda to be submitted are in Angstrom.
 ```bash
-vamdc get lines \
+# Only run this if vamdc-count-radiative > 0 from Step 2
+vamdc --quiet get lines \
   --inchikey=FYYHWMGAXLPEAU-UHFFFAOYSA-N \
   --node=vald \
   --lambda-min=2500 \
   --lambda-max=5000 \
   --format csv \
-  --output mg_lines.csv
+  --output mg_lines.csv \
+  2>>errors.log
+```
+
+**Using --accept-truncation flag:** When querying large datasets or iterating through many species, use the `--accept-truncation` flag to accept partial results without recursive splitting:
+
+```bash
+vamdc --quiet get lines \
+  --inchikey=FYYHWMGAXLPEAU-UHFFFAOYSA-N \
+  --node=cdms \
+  --lambda-min=2500 \
+  --lambda-max=5000 \
+  --accept-truncation \
+  --format csv \
+  --output lines.csv\
+  2>vamdc_errors.log
+```
+
+If you need to convert units to submit the previous query in Angstrom, you can use 
+```bash
+# Convert 500 nanometers to angstrom
+vamdc convert energy 500 --from-unit=nanometer --to-unit=angstrom
+
+# Convert 1.5 eV to angstrom
+vamdc convert energy 1.5 --from-unit=eV --to-unit=angstrom
+
+
+# Convert frequency to wavelength in angstrom
+vamdc convert energy 100 --from-unit=gigahertz --to-unit=angstrom
 ```
 
 ### 3. Output Formats
@@ -136,7 +196,8 @@ The `--node` parameter accepts multiple formats:
 Retrieve available nodes:
 
 ```bash
-vamdc get nodes --format csv | grep -i "keyword"
+vamdc --quiet get nodes --format csv --output nodes.csv
+grep -i "keyword" nodes.csv
 ```
 
 ### Finding InChIKeys
@@ -146,14 +207,14 @@ InChI (International Chemical Identifier) is a standardized representation of mo
 To find an InChIKey for a species:
 
 ```bash
-vamdc get species --filter-by "name:CO"
-# Look for the "InChIKey" column in output
+vamdc --quiet get species --filter-by "name:CO" --format csv --output co_species.csv 2>vamdc_errors.log
+# Look for the "InChIKey" column in output file
 ```
 
-Or download and search locally:
+Or download all species and search locally:
 
 ```bash
-vamdc get species --format csv --output species.csv
+vamdc --quiet get species --format csv --output species.csv 2>vamdc_errors.log
 grep -i "your_species_name" species.csv
 ```
 
@@ -176,8 +237,8 @@ vamdc cache clear
 **Force refresh without clearing:**
 
 ```bash
-vamdc get species --refresh
-vamdc get nodes --refresh
+vamdc --quiet get species --refresh --format csv --output species.csv 2>vamdc_errors.log
+vamdc --quiet get nodes --refresh --format csv --output nodes.csv 2>vamdc_errors.log
 ```
 
 **Override cache location:**
@@ -188,17 +249,41 @@ export VAMDC_CACHE_DIR=/path/to/custom/cache
 
 ## Debugging
 
-**Enable verbose output:**
+**For human debugging only, enable verbose output:**
 
 ```bash
 vamdc --verbose get lines --inchikey=... --node=...
+vamdc --debug get lines --inchikey=... --node=...  # Full tracebacks
+```
+
+**Note:** AI agents should always use `--quiet` mode and never use `--verbose` or `--debug`.
+
+**Managing error output:** Even with `--quiet`, underlying libraries may produce warnings. To keep logs clean during batch processing:
+
+```bash
+# Redirect stderr to a log file
+vamdc --quiet get species ... 2>errors.log
+
+# Or discard stderr entirely (use with caution)
+vamdc --quiet get species ... 2>/dev/null
+
+# In Python scripts
+import subprocess
+result = subprocess.run(
+    cmd,
+    stdout=subprocess.PIPE,
+    stderr=open('vamdc_errors.log', 'w'),  # Log errors
+    # OR: stderr=subprocess.DEVNULL,        # Discard errors
+    text=True
+)
 ```
 
 **Common issues:**
 
-- **"Node not found"**: Run `vamdc get nodes` to verify node name/ID
-- **"No species with InChIKey"**: Verify InChIKey is correct via `vamdc get species`
+- **"Node not found"**: Run `vamdc --quiet get nodes --format csv --output nodes.csv` to verify node name/ID
+- **"No species with InChIKey"**: Verify InChIKey via `vamdc --quiet get species --format csv --output species.csv`
 - **Unexpected cache behavior**: Clear cache with `vamdc cache clear`
+- **RDKit InChI warnings**: These are normal for some species with non-standard InChI representations; redirect stderr if they clutter output
 
 **View full command help:**
 
@@ -215,16 +300,50 @@ See `references/parameter_guide.md` for detailed parameter descriptions, wavelen
 
 ## Common Task Patterns
 
+**Systematic search through multiple species (RECOMMENDED PATTERN):**
+
+```bash
+# Efficient count-first approach
+while IFS=',' read -r inchikey name formula; do
+  echo "Checking $formula..."
+  
+  # Step 1: Count (fast, lightweight)
+  count_output=$(vamdc --quiet count lines \
+    --inchikey="$inchikey" \
+    --node=cdms \
+    --lambda-min=26006000 \
+    --lambda-max=26010000 \
+    2>>batch_errors.log | grep "vamdc-count-radiative")
+  
+  # Step 2: Only get lines if count > 0
+  if echo "$count_output" | grep -q "vamdc-count-radiative: [1-9]"; then
+    echo "  ✓ Found lines! Downloading..."
+    vamdc --quiet get lines \
+      --inchikey="$inchikey" \
+      --node=cdms \
+      --lambda-min=26006000 \
+      --lambda-max=26010000 \
+      --accept-truncation \
+      --format csv \
+      --output "lines_${formula}.csv" \
+      2>>batch_errors.log
+  else
+    echo "  No lines found"
+  fi
+done < species_list.csv
+```
+
 **Get all carbon monoxide lines from a specific node:**
 
-1. Find InChIKey: `vamdc get species --filter-by "name:CO"`
-2. Query: `vamdc get lines --inchikey=LFQSCWFLJHTTHZ-UHFFFAOYSA-N --node=hitran --format csv --output co_lines.csv`
+1. Find InChIKey: `vamdc --quiet get species --filter-by "name:CO" --format csv --output co_species.csv 2>errors.log`
+2. Count lines: `vamdc --quiet count lines --inchikey=UGFAIRIUMAVXCW-UHFFFAOYSA-N --node=hitran --lambda-min=26006000 --lambda-max=26010000 2>>errors.log`
+3. If count > 0, get lines: `vamdc --quiet get lines --inchikey=UGFAIRIUMAVXCW-UHFFFAOYSA-N --node=hitran --lambda-min=26006000 --lambda-max=26010000 --format csv --output co_lines.csv 2>>errors.log`
 
 **Build a spectral catalog across multiple nodes:**
 
-1. Get species list: `vamdc get species --format csv --output species.csv`
-2. For each species of interest, query multiple nodes and aggregate results
-3. Use postprocessing (Python/awk/etc.) to combine and filter
+1. Get species list: `vamdc --quiet get species --format csv --output species.csv 2>errors.log`
+2. For each species and node of interest, use count-first workflow (see "Systematic search" pattern above)
+3. Use postprocessing (Python/awk/etc.) to combine and filter results
 
 **Sample specific wavelength regions:**
 

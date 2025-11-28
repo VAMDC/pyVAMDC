@@ -1,5 +1,3 @@
-from logging import Logger
-
 import pandas as pd
 import json
 import urllib.request
@@ -13,13 +11,11 @@ from rdkit import Chem
 from rdkit.Chem import Descriptors
 from rdkit.Chem import Draw
 
-import logging
-from logging import Logger
-
 # Import the filters module
 from pyVAMDC.spectral import filters
+from pyVAMDC.spectral.logging_config import get_logger
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 class speciesByAstronomicalDomains(Enum):
     """
     This class defines some astronomical domain, together with their related species.
@@ -557,10 +553,13 @@ def addComputedChemicalInfo(input_df):
             try:
                 # get some chemical information locally, from the InChI
                 number_unique_atoms, number_total_atoms, computed_charge, _, _, computed_weight = getChemicalInformationsFromInchi(inchi)
-            except:
+            except Exception as e:
                 # if the chemical information can not be deduced from the Inchi
-                LOGGER.error("Exception in converting the InChI: %s from %s" % (str(inchi), row['ivoIdentifier']))
-                #print("Exception in converting the InChI:" + str(inchi))
+                LOGGER.error(
+                    f"Failed to convert InChI: {inchi} from node {row['ivoIdentifier']}",
+                    exception=e,
+                    show_traceback=False
+                )
                 number_unique_atoms = np.nan
                 number_total_atoms = np.nan
                 computed_charge = np.nan
@@ -597,8 +596,11 @@ def generate_molecule_image(inchi, image_path_and_name, size=(300, 300)):
         # Save the molecule image to a file
         mol_image.save(image_path_and_name)
     except Exception as error:
-        print("Exception in converting the InChI:" + str(inchi))
-        print(error)
+        LOGGER.error(
+            f"Failed to generate molecule image for InChI: {inchi}",
+            exception=error,
+            show_traceback=False
+        )
         mol_image = None
 
     return mol_image
