@@ -1,6 +1,9 @@
 import pandas as pd
 import multiprocessing
 from enum import Enum
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from threading import Semaphore
+from collections import defaultdict
 import pyVAMDC.spectral.species as species
 import pyVAMDC.spectral.vamdcQuery as vamdcQuery
 from pyVAMDC.spectral.logging_config import get_logger
@@ -179,6 +182,94 @@ def _process_instance(instance):
     return instance.parallelMethod()
 
 
+def _process_single_query(query, semaphore):
+    """
+    Process a single query: fetch XSAMS data and convert to DataFrame.
+    Uses a semaphore to limit concurrent requests to the same node.
+    
+    Args:
+        query: VamdcQuery instance to process
+        semaphore: Semaphore to control concurrent access to the node
+    
+    Returns:
+        query: The processed VamdcQuery instance
+    """
+    with semaphore:
+        try:
+            # get the data
+            query.getXSAMSData()
+            # convert the data 
+            query.convertToDataFrame()
+            LOGGER.debug(f"Successfully processed query {query.localUUID} for node {query.nodeEndpoint}")
+        except Exception as e:
+            LOGGER.error(
+                f"Error processing query {query.localUUID} for node {query.nodeEndpoint}",
+                exception=e,
+                show_traceback=True
+            )
+    return query
+
+
+def _process_queries_parallel(listOfAllQueries, max_concurrent_per_node=3):
+    """
+    Process queries in parallel with controlled concurrency per node.
+    
+    This function groups queries by node endpoint and uses semaphores to limit
+    the number of concurrent requests to each node. This prevents overwhelming
+    individual nodes while maximizing overall throughput.
+    
+    Args:
+        listOfAllQueries: list of VamdcQuery instances to process
+        max_concurrent_per_node: maximum number of concurrent requests per node (default: 3)
+    
+    Returns:
+        listOfAllQueries: the same list with all queries processed
+    """
+    if not listOfAllQueries:
+        return listOfAllQueries
+    
+    # Group queries by node endpoint
+    queries_by_node = defaultdict(list)
+    for query in listOfAllQueries:
+        queries_by_node[query.nodeEndpoint].append(query)
+    
+    # Create a semaphore for each node to limit concurrent requests
+    semaphores = {node: Semaphore(max_concurrent_per_node) for node in queries_by_node.keys()}
+    
+    # Calculate total number of workers: max_concurrent_per_node * number_of_nodes
+    num_nodes = len(queries_by_node)
+    max_workers = max_concurrent_per_node * num_nodes
+    
+    LOGGER.info(f"Processing queries with {max_workers} workers ({max_concurrent_per_node} per node, {num_nodes} nodes)")
+    
+    # Process all queries in parallel using ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        # Submit all queries to the executor
+        future_to_query = {
+            executor.submit(_process_single_query, query, semaphores[query.nodeEndpoint]): query
+            for query in listOfAllQueries
+        }
+        
+        # Wait for all queries to complete and log progress
+        completed = 0
+        total = len(listOfAllQueries)
+        for future in as_completed(future_to_query):
+            completed += 1
+            if completed % 10 == 0 or completed == total:
+                LOGGER.info(f"Progress: {completed}/{total} queries completed")
+            try:
+                future.result()
+            except Exception as e:
+                query = future_to_query[future]
+                LOGGER.error(
+                    f"Query {query.localUUID} failed with exception",
+                    exception=e,
+                    show_traceback=True
+                )
+    
+    return listOfAllQueries
+
+
 def _build_and_run_wrappings(lambdaMin, lambdaMax, species_dataframe, nodes_dataframe, accept_truncation) -> list:
      # if the provided species_dataframe is not provided, we build it by taking all the species
     if species_dataframe is None:
@@ -272,7 +363,7 @@ def get_metadata_for_lines(lambdaMin, lambdaMax, species_dataframe = None, nodes
 
 
 
-def getLines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = None, acceptTruncation = False):
+def getLines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = None, acceptTruncation = False, max_concurrent_per_node = 3):
     """
     Extract all the spectroscopic lines in a given wavelenght interval. 
 
@@ -297,6 +388,10 @@ def getLines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = N
         
         acceptTruncation : boolean
             If True, accept truncated query results. If False, split queries recursively.
+        
+        max_concurrent_per_node : int
+            Maximum number of concurrent requests allowed per node (default: 3).
+            Total parallelism will be max_concurrent_per_node * number_of_nodes.
   
     Returns:
         atomic_results_dict : dictionary
@@ -321,12 +416,8 @@ def getLines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = N
     LOGGER.info(f"Total amount of sub-queries to be submitted: {len(listOfAllQueries)}")
 
     # At this point the list listOfAllQueries contains all the query that can be run without truncation
-    # For each query in the list, we get the data, and convert the data into a Pandas dataframe
-    for currentQuery in listOfAllQueries:
-        # get the data
-        currentQuery.getXSAMSData()
-        # convert the data 
-        currentQuery.convertToDataFrame()
+    # Process all queries in parallel with controlled concurrency per node
+    _process_queries_parallel(listOfAllQueries, max_concurrent_per_node)
     
     # now we build two dictionaries, one with all the molecular data-frames, the other one with atomic data-frames
     atomic_results_dict = {}
