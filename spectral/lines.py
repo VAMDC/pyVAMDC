@@ -235,7 +235,7 @@ def _ensure_common_wavelength_column(lines_df: pd.DataFrame) -> pd.DataFrame:
             return 'eV'
         # Handle common variations
         unit_lower = unit_str.lower().strip()
-        if unit_lower in ['å', 'ang']:
+        if unit_lower in ['a','å', 'ang']:
             return 'angstrom'
         if unit_lower in ['hz']:
             return 'hertz'
