@@ -6,6 +6,7 @@ from collections import defaultdict
 import re
 from typing import Tuple, Optional
 import numpy as np
+from tqdm import tqdm
 import pyVAMDC.spectral.species as species
 import pyVAMDC.spectral.vamdcQuery as vamdcQuery
 from pyVAMDC.spectral.logging_config import get_logger
@@ -401,7 +402,7 @@ def _process_queries_parallel(listOfAllQueries, max_concurrent_per_node=3):
     num_nodes = len(queries_by_node)
     max_workers = max_concurrent_per_node * num_nodes
     
-    LOGGER.info(f"Processing queries with {max_workers} workers ({max_concurrent_per_node} per node, {num_nodes} nodes)")
+    LOGGER.info(f"Processing {len(listOfAllQueries)} data queries with {max_workers} workers ({max_concurrent_per_node} per node, {num_nodes} nodes)")
     
     # Process all queries in parallel using ThreadPoolExecutor
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -411,22 +412,19 @@ def _process_queries_parallel(listOfAllQueries, max_concurrent_per_node=3):
             for query in listOfAllQueries
         }
         
-        # Wait for all queries to complete and log progress
-        completed = 0
-        total = len(listOfAllQueries)
-        for future in as_completed(future_to_query):
-            completed += 1
-            if completed % 10 == 0 or completed == total:
-                LOGGER.info(f"Progress: {completed}/{total} queries completed")
-            try:
-                future.result()
-            except Exception as e:
-                query = future_to_query[future]
-                LOGGER.error(
-                    f"Query {query.localUUID} failed with exception",
-                    exception=e,
-                    show_traceback=True
-                )
+        # Wait for all queries to complete with progress bar
+        with tqdm(total=len(listOfAllQueries), desc="Fetching data", unit="query") as pbar:
+            for future in as_completed(future_to_query):
+                try:
+                    future.result()
+                except Exception as e:
+                    query = future_to_query[future]
+                    LOGGER.error(
+                        f"Query {query.localUUID} failed with exception",
+                        exception=e,
+                        show_traceback=True
+                    )
+                pbar.update(1)
     
     return listOfAllQueries
 
@@ -507,25 +505,22 @@ def _build_and_run_wrappings(lambdaMin, lambdaMax, species_dataframe, nodes_data
             for species_row, node_endpoint in all_tasks
         }
         
-        # Wait for all HEAD queries to complete and collect results
-        completed = 0
-        total = len(future_to_species)
-        for future in as_completed(future_to_species):
-            completed += 1
-            if completed % 10 == 0 or completed == total:
-                LOGGER.info(f"HEAD query progress: {completed}/{total} species processed")
-            try:
-                queries = future.result()
-                # Thread-safe list extension
-                with list_lock:
-                    listOfAllQueries.extend(queries)
-            except Exception as e:
-                species_row = future_to_species[future]
-                LOGGER.error(
-                    f"Failed to create HEAD query for species {species_row.get('InChIKey', 'unknown')}",
-                    exception=e,
-                    show_traceback=True
-                )
+        # Wait for all HEAD queries to complete and collect results with progress bar
+        with tqdm(total=len(future_to_species), desc="Creating queries", unit="species") as pbar:
+            for future in as_completed(future_to_species):
+                try:
+                    queries = future.result()
+                    # Thread-safe list extension
+                    with list_lock:
+                        listOfAllQueries.extend(queries)
+                except Exception as e:
+                    species_row = future_to_species[future]
+                    LOGGER.error(
+                        f"Failed to create HEAD query for species {species_row.get('InChIKey', 'unknown')}",
+                        exception=e,
+                        show_traceback=True
+                    )
+                pbar.update(1)
     
     LOGGER.info(f"Created {len(listOfAllQueries)} HEAD queries (including splits from truncation)")
     return listOfAllQueries
@@ -627,9 +622,22 @@ def getLines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = N
                 - 'vamdcCall': the VAMDC query URL
                 - 'XSAMS_file_path': the path to the downloaded XSAMS file
     """
+    # Build all HEAD queries (this will show progress bar for query creation)
     listOfAllQueries = _build_and_run_wrappings(lambdaMin, lambdaMax, species_dataframe, nodes_dataframe, acceptTruncation, max_concurrent_per_node)
 
-    LOGGER.info(f"Total amount of sub-queries to be submitted for data fetching: {len(listOfAllQueries)}")
+    # Show summary of what will be processed
+    if listOfAllQueries:
+        nodes_in_queries = set(q.nodeEndpoint for q in listOfAllQueries)
+        print(f"\n{'='*70}")
+        print(f"Processing Summary:")
+        print(f"  Wavelength range: {lambdaMin:.2f} - {lambdaMax:.2f} Angstrom")
+        print(f"  Total queries to process: {len(listOfAllQueries)}")
+        print(f"  Nodes involved: {len(nodes_in_queries)}")
+        print(f"  Parallel workers per node: {max_concurrent_per_node}")
+        print(f"{'='*70}\n")
+    else:
+        print("No queries to process.")
+        return {}, {}, []
 
     # At this point the list listOfAllQueries contains all the query that can be run without truncation
     # Process all queries in parallel with controlled concurrency per node
