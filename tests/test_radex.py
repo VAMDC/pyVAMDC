@@ -26,7 +26,7 @@ def main():
 
         # Display file URLs for the first entry
         if len(df_radex) > 0:
-            urls = radex.displayFileUrls(df_radex, index=0)
+            urls = radex.displayFileUrls(df_radex)
             print(f"\nReturned URLs: {urls}")
 
     else:
