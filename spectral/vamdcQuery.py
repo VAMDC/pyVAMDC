@@ -74,8 +74,8 @@ class VamdcQuery:
 
     # Constants for HTTP headers
     USER_AGENT_QUERY_STORE = 'VAMDC Query store'
-    DEFAULT_USER_AGENT = 'VAMDC Query store'
-    #DEFAULT_USER_AGENT = 'pyVAMDC v0.1'
+    #DEFAULT_USER_AGENT = 'VAMDC Query store'
+    DEFAULT_USER_AGENT = 'pyVAMDC v0.1'
 
     def __init__(self, nodeEndpoint, lambdaMin, lambdaMax, InchiKey, speciesType, totalListOfQueries, acceptTruncation = False):
       """ This is the constructor of the VAMDCQuery class. 
