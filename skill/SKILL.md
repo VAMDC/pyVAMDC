@@ -125,8 +125,13 @@ vamdc --quiet count lines \
 **IMPORTANT:** Only proceed with `get lines` if the count from Step 2 showed radiative transitions exist.
 
 Units for lambda to be submitted are in Angstrom.
+
+**Choose format based on dataset size:**
+- For **small datasets** (< 10,000 lines): Use `--format csv` or `--format json`
+- For **large datasets** (> 10,000 lines): Use `--format parquet` for memory efficiency
+
 ```bash
-# Only run this if vamdc-count-radiative > 0 from Step 2
+# CSV format (good for small datasets)
 vamdc --quiet get lines \
   --inchikey=FYYHWMGAXLPEAU-UHFFFAOYSA-N \
   --node=vald \
@@ -135,7 +140,22 @@ vamdc --quiet get lines \
   --format csv \
   --output mg_lines.csv \
   2>>errors.log
+
+# Parquet format (recommended for large datasets - memory efficient)
+vamdc --quiet get lines \
+  --inchikey=FYYHWMGAXLPEAU-UHFFFAOYSA-N \
+  --node=vald \
+  --lambda-min=2500 \
+  --lambda-max=5000 \
+  --format parquet \
+  2>>errors.log
 ```
+
+**Why use parquet for large datasets?**
+- Memory efficient: Data stored on disk, not loaded entirely into RAM
+- Faster processing: Columnar storage optimized for analytical queries
+- Smaller files: Compressed binary format vs text CSV
+- Type preservation: Maintains exact data types and precision
 
 **Using --accept-truncation flag:** When querying large datasets or iterating through many species, use the `--accept-truncation` flag to accept partial results without recursive splitting:
 
@@ -178,10 +198,12 @@ vamdc convert energy 100 --from-unit=gigahertz --to-unit=angstrom
 - `excel`: Excel spreadsheet
 
 **Spectral lines:**
-- `xsams` (default): XSAMS XML (saved automatically)
-- `csv`: Tabular format (wavelength, oscillator strength, state labels, etc.)
+- `table` (default): Human-readable table
+- `xsams`: XSAMS XML files (saved to directory)
+- `slap2`: SLAP2-compliant VOTable XML files
+- `csv`: Tabular CSV format (wavelength, oscillator strength, state labels, etc.)
 - `json`: JSON array
-- `table`: Human-readable table
+- `parquet`: Columnar binary format (memory-efficient for large datasets)
 
 ## Identifying Nodes and Species
 

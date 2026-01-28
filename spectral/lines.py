@@ -7,12 +7,113 @@ import re
 from typing import Tuple, Optional
 import numpy as np
 from tqdm import tqdm
+from datetime import datetime
+from pathlib import Path
+import duckdb
 import pyVAMDC.spectral.species as species
 import pyVAMDC.spectral.vamdcQuery as vamdcQuery
 from pyVAMDC.spectral.logging_config import get_logger
 from pyVAMDC.spectral.energyConverter import electromagnetic_conversion
 
 LOGGER = get_logger(__name__)
+
+
+def _sanitize_node_name(node_endpoint, for_directory=False):
+    """
+    Create a sanitized name from a node endpoint URL or IVO identifier.
+    
+    Args:
+        node_endpoint: The node endpoint URL or IVO identifier
+        for_directory: If True, extracts meaningful parts for directory naming.
+                      If False, creates a full sanitized filename with underscores.
+    
+    Returns:
+        Sanitized string suitable for use as directory or filename
+    """
+    # Remove common prefixes
+    clean_name = node_endpoint.replace("http://", "").replace("https://", "").replace("ivo://", "")
+    
+    if for_directory:
+        # Handle IVO identifiers and URLs differently
+        if node_endpoint.startswith("ivo://"):
+            # For IVO identifiers like "ivo://vamdc/vald/uu/django" or "ivo://vamdc/vald-Moscow"
+            # Extract meaningful parts after "vamdc"
+            parts = clean_name.split("/")
+            if len(parts) >= 2 and parts[0] == "vamdc":
+                # Use the database name (e.g., "vald", "topbase") as the base
+                db_name = parts[1]
+                # If there are additional parts, include them to ensure uniqueness
+                if len(parts) > 2:
+                    additional_parts = "_".join(parts[2:])
+                    return f"{db_name}_{additional_parts}".replace("-", "_")
+                else:
+                    return db_name.replace("-", "_")
+            else:
+                # Fallback: use all parts joined with underscores
+                return "_".join(parts).replace("-", "_").replace(":", "_")
+        else:
+            # For regular URLs, extract the domain name
+            return clean_name.split("/")[0].split(".")[0]
+    else:
+        # Create a full sanitized filename with underscores
+        return clean_name.replace("/", "_").replace(":", "_").replace("-", "_")
+
+
+def _build_aggregated_parquet_name(species_type, node_endpoint, lambda_min, lambda_max):
+    """
+    Generate a unique filename for aggregated parquet files containing query parameters and timestamp.
+    
+    Args:
+        species_type: Type of species (e.g., 'atomic' or 'molecular')
+        node_endpoint: The node endpoint URL or IVO identifier
+        lambda_min: Minimum wavelength value
+        lambda_max: Maximum wavelength value
+    
+    Returns:
+        str: Formatted filename for the parquet file
+        
+    Example:
+        >>> _build_aggregated_parquet_name('atomic', 'ivo://vamdc/vald/uu/django', 2.60e+07, 3.60e+07)
+        'atomic_vald_uu_django_2.60e+07_3.60e+07_20250127T143022.parquet'
+    """
+    # Get sanitized node identifier
+    node_id = _sanitize_node_name(node_endpoint, for_directory=True)
+    
+    # Generate timestamp
+    timestamp = datetime.now().strftime("%Y%m%dT%H%M%S")
+    
+    # Format lambda values in scientific notation
+    lambda_min_str = f"{lambda_min:.2e}"
+    lambda_max_str = f"{lambda_max:.2e}"
+    
+    # Return formatted filename
+    return f"{species_type}_{node_id}_{lambda_min_str}_{lambda_max_str}_{timestamp}.parquet"
+
+
+def _get_query_results_dir():
+    """
+    Get the QueryResults directory, creating it if it doesn't exist.
+    
+    Returns:
+        Path: Path object to the QueryResults directory in the current working directory
+    """
+    query_results_dir = Path.cwd() / "QueryResults"
+    query_results_dir.mkdir(exist_ok=True)
+    return query_results_dir
+
+
+def _build_individual_parquet_path(uuid):
+    """
+    Build the full path for an individual parquet file based on UUID.
+    
+    Args:
+        uuid: Unique identifier for the parquet file
+    
+    Returns:
+        Path: Full path to the parquet file in QueryResults directory
+    """
+    query_results_dir = _get_query_results_dir()
+    return query_results_dir / f"{uuid}.parquet"
 
 
 class telescopeBands(Enum):
@@ -122,14 +223,18 @@ def getLinesByTelescopeBand(band:telescopeBands, species_dataframe = None, nodes
   
     Returns:
         atomic_results_dict : dictionary
-            A dictionary containing the extracted lines for atomic species, grouped by databases. The keys of this dictionary is the database 
-            identifier (nodeIdentifier) and the value is a datafrale containing the spectroscopic lines extracted from that database. 
+            A dictionary containing paths to parquet files with atomic spectroscopic lines,
+            grouped by databases. Keys are node identifiers, values are file paths.
+            Use getLinesAsDataFramesByTelescopeBand() if you need DataFrames directly.
         
         molecular_results_dict : dictionary
-            A dictionary containing the extracted lines for molecular species, grouped by databases. The keys of this dictionary is the database 
-            identifier (nodeIdentifier) and the value is a datafrale containing the spectroscopic lines extracted from that database.
+            A dictionary containing paths to parquet files with molecular spectroscopic lines,
+            grouped by databases. Keys are node identifiers, values are file paths.
+        
+        queries_metadata_list : list
+            A list of dictionaries with metadata about each query.
     """
-    return getLines(band.lambdaMin, band.lambdaMax, species_dataframe=species_dataframe, nodes_dataframe=nodes_dataframe)
+    return getLines(band.value[0], band.value[1], species_dataframe=species_dataframe, nodes_dataframe=nodes_dataframe)
 
 
 
@@ -170,8 +275,12 @@ def _create_single_head_query(species_row, lambdaMin, lambdaMax, acceptTruncatio
 
 def _process_single_query(query, semaphore):
     """
-    Process a single query: fetch XSAMS data and convert to DataFrame.
+    Process a single query: fetch XSAMS data and convert to parquet file.
     Uses a semaphore to limit concurrent requests to the same node.
+    
+    After processing, the query will have:
+    - query.parquet_path: Path to the individual parquet file
+    - query.lines_df: None (memory released after writing parquet)
     
     Args:
         query: VamdcQuery instance to process
@@ -184,7 +293,7 @@ def _process_single_query(query, semaphore):
         try:
             # get the data
             query.getXSAMSData()
-            # convert the data 
+            # convert the data to parquet (harmonizes wavelength, writes parquet, releases memory)
             query.convertToDataFrame()
             LOGGER.debug(f"Successfully processed query {query.localUUID} for node {query.nodeEndpoint}")
         except Exception as e:
@@ -195,181 +304,6 @@ def _process_single_query(query, semaphore):
             )
     return query
 
-
-def _ensure_common_wavelength_column(lines_df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Ensure the dataframe has a common 'Wavelength (m)' column in meters for concatenation.
-
-    This method checks for wavelength, energy, or frequency columns in the dataframe
-    and converts them to wavelength in meters if necessary. It handles column names
-    with units in the format "Column_name (unit)".
-
-    Args:
-        lines_df (pd.DataFrame): Input lines dataframe from VAMDC.
-
-    Returns:
-        pd.DataFrame: DataFrame with 'Wavelength (m)' column in meters.
-
-    Raises:
-        ValueError: If no wavelength, energy, or frequency data is found.
-    """
-    if lines_df is None or lines_df.empty:
-        return lines_df
-        
-    df = lines_df.copy()
-
-    # Pattern to extract unit from column name like "ColumnName (unit)"
-    unit_pattern = r'\(([^)]+)\)$'
-
-    # Check if Wavelength (m) already exists
-    if 'Wavelength (m)' in df.columns:
-        LOGGER.debug("Wavelength (m) column already present")
-        return df
-
-    # Helper function to normalize unit names for energyConverter
-    def normalize_unit(unit_str: str) -> str:
-        """Normalize unit name to match energyConverter expectations."""
-        if unit_str is None:
-            return None
-        # Special cases that need to maintain case
-        if unit_str.upper() == 'EV':
-            return 'eV'
-        # Handle common variations
-        unit_lower = unit_str.lower().strip()
-        if unit_lower in ['a','å', 'ang']:
-            return 'angstrom'
-        if unit_lower in ['hz']:
-            return 'hertz'
-        if unit_lower in ['m']:
-            return 'meter'
-        if unit_lower in ['nm']:
-            return 'nanometer'
-        if unit_lower in ['cm']:
-            return 'centimeter'
-        if unit_lower in ['mm']:
-            return 'millimeter'
-        if unit_lower in ['um', 'μm']:
-            return 'micrometer'
-        if unit_lower in ['ghz']:
-            return 'gigahertz'
-        if unit_lower in ['mhz']:
-            return 'megahertz'
-        if unit_lower in ['khz']:
-            return 'kilohertz'
-        if unit_lower in ['thz']:
-            return 'terahertz'
-        if unit_lower in ['cm-1', 'cm^-1']:
-            return 'cm-1'
-        # Return as lowercase by default
-        return unit_lower
-
-    # Helper function to parse column name and extract unit
-    def parse_column_with_unit(col_name: str) -> Tuple[str, Optional[str]]:
-        """Parse column name to extract base name and unit."""
-        match = re.search(unit_pattern, col_name)
-        if match:
-            unit = match.group(1).strip()
-            base_name = col_name[:match.start()].strip()
-            return base_name, unit
-        return col_name, None
-
-    # Search for wavelength, energy, and frequency columns
-    wavelength_columns = {}
-    energy_columns = {}
-    frequency_columns = {}
-
-    for col in df.columns:
-        base_name, unit = parse_column_with_unit(col)
-        base_lower = base_name.lower()
-
-        # Wavelength variants
-        if any(wl in base_lower for wl in ['wavelength', 'wave', 'wl']):
-            wavelength_columns[col] = unit
-        # Energy variants (including wavenumber)
-        elif any(en in base_lower for en in ['energy', 'wavenumber']):
-            energy_columns[col] = unit
-        # Frequency variants
-        elif any(fr in base_lower for fr in ['frequency', 'freq']):
-            frequency_columns[col] = unit
-
-    # Conversion logic - preference order: wavelength > frequency > energy
-    try:
-        if wavelength_columns:
-            # Use the first wavelength column found
-            wl_col = list(wavelength_columns.keys())[0]
-            wl_unit = wavelength_columns[wl_col]
-
-            if wl_unit is None:
-                # Assume Angstrom if no unit specified (common in VAMDC)
-                LOGGER.warning(
-                    f"Wavelength column '{wl_col}' has no unit specified, assuming Angstrom"
-                )
-                wl_unit = 'angstrom'
-            else:
-                # Normalize unit name for energyConverter
-                wl_unit = normalize_unit(wl_unit)
-
-            LOGGER.debug(f"Converting wavelength from {wl_unit} to meter using column '{wl_col}'")
-            df['Wavelength (m)'] = df[wl_col].apply(
-                lambda x: electromagnetic_conversion(x, wl_unit, 'meter') if pd.notna(x) else np.nan
-            )
-
-        elif frequency_columns:
-            # Use the first frequency column found
-            freq_col = list(frequency_columns.keys())[0]
-            freq_unit = frequency_columns[freq_col]
-
-            if freq_unit is None:
-                # Assume Hertz if no unit specified
-                LOGGER.warning(
-                    f"Frequency column '{freq_col}' has no unit specified, assuming hertz"
-                )
-                freq_unit = 'hertz'
-            else:
-                # Normalize unit name for energyConverter
-                freq_unit = normalize_unit(freq_unit)
-
-            LOGGER.debug(f"Converting frequency from {freq_unit} to wavelength in meters using column '{freq_col}'")
-            df['Wavelength (m)'] = df[freq_col].apply(
-                lambda x: electromagnetic_conversion(x, freq_unit, 'meter') if pd.notna(x) else np.nan
-            )
-
-        elif energy_columns:
-            # Use the first energy column found
-            energy_col = list(energy_columns.keys())[0]
-            energy_unit = energy_columns[energy_col]
-
-            if energy_unit is None:
-                # Assume eV if no unit specified
-                LOGGER.warning(
-                    f"Energy column '{energy_col}' has no unit specified, assuming eV"
-                )
-                energy_unit = 'eV'
-            else:
-                # Normalize unit name for energyConverter
-                energy_unit = normalize_unit(energy_unit)
-
-            LOGGER.debug(f"Converting energy from {energy_unit} to wavelength in meters using column '{energy_col}'")
-            df['Wavelength (m)'] = df[energy_col].apply(
-                lambda x: electromagnetic_conversion(x, energy_unit, 'meter') if pd.notna(x) else np.nan
-            )
-
-        else:
-            # If no suitable column found, create a placeholder column with NaN values
-            LOGGER.warning(
-                "No wavelength, energy, or frequency columns found in the dataframe. "
-                "Creating placeholder 'Wavelength (m)' column with NaN values for concatenation compatibility."
-            )
-            df['Wavelength (m)'] = np.nan
-
-        return df
-
-    except Exception as e:
-        LOGGER.error(f"Failed to convert wavelength data: {str(e)}")
-        # Create placeholder column to allow concatenation
-        LOGGER.warning("Creating placeholder 'Wavelength (m)' column with NaN values due to conversion error")
-        df['Wavelength (m)'] = np.nan
-        return df
 
 
 def _process_queries_parallel(listOfAllQueries, max_concurrent_per_node=3):
@@ -606,12 +540,14 @@ def getLines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = N
   
     Returns:
         atomic_results_dict : dictionary
-            A dictionary containing the extracted lines for atomic species, grouped by databases. The keys of this dictionary is the database 
-            identifier (nodeIdentifier) and the value is a datafrale containing the spectroscopic lines extracted from that database. 
+            A dictionary containing paths to aggregated parquet files for atomic species, grouped by databases. 
+            The keys of this dictionary are the database identifiers (nodeEndpoint) and the values are paths 
+            (strings) to the aggregated parquet files containing the spectroscopic lines extracted from that database.
         
         molecular_results_dict : dictionary
-            A dictionary containing the extracted lines for molecular species, grouped by databases. The keys of this dictionary is the database 
-            identifier (nodeIdentifier) and the value is a datafrale containing the spectroscopic lines extracted from that database.
+            A dictionary containing paths to aggregated parquet files for molecular species, grouped by databases. 
+            The keys of this dictionary are the database identifiers (nodeEndpoint) and the values are paths 
+            (strings) to the aggregated parquet files containing the spectroscopic lines extracted from that database.
         
         queries_metadata_list : list
             A list of dictionaries, one per query in listOfAllQueries, containing metadata about each query with the following fields:
@@ -621,6 +557,7 @@ def getLines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = N
                 - 'InchiKey': the InChI Key identifier of the chemical species
                 - 'vamdcCall': the VAMDC query URL
                 - 'XSAMS_file_path': the path to the downloaded XSAMS file
+                - 'parquet_path': the path to the individual parquet file
     """
     # Build all HEAD queries (this will show progress bar for query creation)
     listOfAllQueries = _build_and_run_wrappings(lambdaMin, lambdaMax, species_dataframe, nodes_dataframe, acceptTruncation, max_concurrent_per_node)
@@ -643,38 +580,17 @@ def getLines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = N
     # Process all queries in parallel with controlled concurrency per node
     _process_queries_parallel(listOfAllQueries, max_concurrent_per_node)
     
-    # now we build two dictionaries, one with all the molecular data-frames, the other one with atomic data-frames
-    atomic_results_dict = {}
-    molecular_results_dict= {}
+    # Group parquet paths by node and species type
+    atomic_parquets_by_node = defaultdict(list)
+    molecular_parquets_by_node = defaultdict(list)
     queries_metadata_list = []
-   
-
-    # and we populate those two dictionaries by iterating over the queries that have been processed 
+    
     for currentQuery in listOfAllQueries:
-       
-        nodeIdentifier = currentQuery.nodeEndpoint
-        
-        # Ensure the current query's dataframe has the common wavelength column
-        if currentQuery.lines_df is not None and not currentQuery.lines_df.empty:
-            harmonized_df = _ensure_common_wavelength_column(currentQuery.lines_df)
-        else:
-            harmonized_df = currentQuery.lines_df
-       
-        if currentQuery.speciesType == "atom":
-            if nodeIdentifier in atomic_results_dict:
-                # Ensure existing dataframe also has the common wavelength column
-                existing_df = _ensure_common_wavelength_column(atomic_results_dict[nodeIdentifier])
-                atomic_results_dict[nodeIdentifier] = pd.concat([existing_df, harmonized_df], ignore_index=True)
-            else:
-                atomic_results_dict[nodeIdentifier] = harmonized_df
-        
-        if currentQuery.speciesType == "molecule":
-            if nodeIdentifier in molecular_results_dict:
-                # Ensure existing dataframe also has the common wavelength column
-                existing_df = _ensure_common_wavelength_column(molecular_results_dict[nodeIdentifier])
-                molecular_results_dict[nodeIdentifier] = pd.concat([existing_df, harmonized_df], ignore_index=True)
-            else:
-                molecular_results_dict[nodeIdentifier] = harmonized_df
+        if currentQuery.parquet_path and Path(currentQuery.parquet_path).exists():
+            if currentQuery.speciesType == "atom":
+                atomic_parquets_by_node[currentQuery.nodeEndpoint].append(currentQuery.parquet_path)
+            elif currentQuery.speciesType == "molecule":
+                molecular_parquets_by_node[currentQuery.nodeEndpoint].append(currentQuery.parquet_path)
         
         # Build metadata dictionary for this query
         metadata_dict = {
@@ -683,9 +599,42 @@ def getLines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = N
             "lambdaMax": currentQuery.lambdaMax,
             "InchiKey": currentQuery.InchiKey,
             "vamdcCall": currentQuery.vamdcCall,
-            "XSAMS_file_path": currentQuery.XSAMSFileName
+            "XSAMS_file_path": currentQuery.XSAMSFileName,
+            "parquet_path": str(currentQuery.parquet_path) if currentQuery.parquet_path else None
         }
         queries_metadata_list.append(metadata_dict)
+    
+    # Aggregate atomic parquets using DuckDB
+    atomic_results_dict = {}
+    for node_endpoint, parquet_paths in atomic_parquets_by_node.items():
+        aggregated_filename = _build_aggregated_parquet_name("atomic", node_endpoint, lambdaMin, lambdaMax)
+        aggregated_path = _get_query_results_dir() / aggregated_filename
+        
+        # DuckDB aggregation with union_by_name for schema flexibility
+        paths_list = [str(p) for p in parquet_paths]
+        duckdb.execute(f"""
+            COPY (SELECT * FROM read_parquet({paths_list}, union_by_name=true))
+            TO '{aggregated_path}' (FORMAT PARQUET)
+        """)
+        
+        atomic_results_dict[node_endpoint] = str(aggregated_path)
+        LOGGER.info(f"Aggregated {len(parquet_paths)} atomic parquet files for {node_endpoint} into {aggregated_path}")
+    
+    # Aggregate molecular parquets using DuckDB
+    molecular_results_dict = {}
+    for node_endpoint, parquet_paths in molecular_parquets_by_node.items():
+        aggregated_filename = _build_aggregated_parquet_name("molecular", node_endpoint, lambdaMin, lambdaMax)
+        aggregated_path = _get_query_results_dir() / aggregated_filename
+        
+        # DuckDB aggregation with union_by_name for schema flexibility
+        paths_list = [str(p) for p in parquet_paths]
+        duckdb.execute(f"""
+            COPY (SELECT * FROM read_parquet({paths_list}, union_by_name=true))
+            TO '{aggregated_path}' (FORMAT PARQUET)
+        """)
+        
+        molecular_results_dict[node_endpoint] = str(aggregated_path)
+        LOGGER.info(f"Aggregated {len(parquet_paths)} molecular parquet files for {node_endpoint} into {aggregated_path}")
     
     
     if not(atomic_results_dict) :
@@ -696,3 +645,99 @@ def getLines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = N
 
     # we return the three results: atomic, molecular dictionaries and queries metadata list
     return atomic_results_dict, molecular_results_dict, queries_metadata_list
+
+
+def getLinesAsDataFrames(lambdaMin, lambdaMax, species_dataframe=None, nodes_dataframe=None, acceptTruncation=False, max_concurrent_per_node=3):
+    """
+    Extract all spectroscopic lines in a given wavelength interval and return as DataFrames.
+    
+    This is a convenience wrapper around getLines() that reads the aggregated parquet files
+    back into pandas DataFrames. Use getLines() directly if you want to work with parquet
+    files for better memory efficiency with large datasets.
+
+    Args:
+        lambdaMin : float
+            the inf boundary (in Angstrom) of the wavelength interval
+        
+        lambdaMax : float
+            the sup boundary (in Angstrom) of the wavelength interval  
+
+        species_dataframe : dataframe
+            restrict the extraction of the lines to the chemical species contained into the species_dataframe. 
+            Default None. In this case there is no restriction on the species. 
+
+        nodes_dataframe : dataframe
+            restrict the extraction of the lines to the databases (VAMDC nodes) contained into the nodes_dataframe.
+            Default None. In this case there is no restriction on the Nodes.
+        
+        acceptTruncation : boolean
+            If True, accept truncated query results. If False, split queries recursively.
+        
+        max_concurrent_per_node : int
+            Maximum number of concurrent requests allowed per node (default: 3).
+
+    Returns:
+        atomic_results_dict : dictionary
+            Dictionary with node identifiers as keys and pandas DataFrames as values,
+            containing atomic spectroscopic lines.
+        
+        molecular_results_dict : dictionary
+            Dictionary with node identifiers as keys and pandas DataFrames as values,
+            containing molecular spectroscopic lines.
+        
+        queries_metadata_list : list
+            A list of dictionaries containing metadata about each query.
+    """
+    atomic_paths, molecular_paths, queries_metadata = getLines(
+        lambdaMin, lambdaMax, 
+        species_dataframe=species_dataframe,
+        nodes_dataframe=nodes_dataframe,
+        acceptTruncation=acceptTruncation,
+        max_concurrent_per_node=max_concurrent_per_node
+    )
+    
+    atomic_dfs = {}
+    for node, path in atomic_paths.items():
+        if path and Path(path).exists():
+            atomic_dfs[node] = pd.read_parquet(path)
+            LOGGER.debug(f"Loaded atomic DataFrame for {node} from {path}")
+    
+    molecular_dfs = {}
+    for node, path in molecular_paths.items():
+        if path and Path(path).exists():
+            molecular_dfs[node] = pd.read_parquet(path)
+            LOGGER.debug(f"Loaded molecular DataFrame for {node} from {path}")
+    
+    return atomic_dfs, molecular_dfs, queries_metadata
+
+
+def getLinesAsDataFramesByTelescopeBand(band: telescopeBands, species_dataframe=None, nodes_dataframe=None):
+    """
+    Extract all spectroscopic lines for a given telescope band and return as DataFrames.
+    
+    This is a convenience wrapper that returns DataFrames instead of parquet paths.
+    
+    Args:
+        band : telescopeBands
+            defines the telescope band to request data for.
+        
+        species_dataframe : dataframe
+            restrict the extraction of the lines to the chemical species. Default None.
+        
+        nodes_dataframe : dataframe
+            restrict the extraction to specific VAMDC nodes. Default None.
+    
+    Returns:
+        atomic_results_dict : dictionary
+            Dictionary with node identifiers as keys and pandas DataFrames as values.
+        
+        molecular_results_dict : dictionary
+            Dictionary with node identifiers as keys and pandas DataFrames as values.
+        
+        queries_metadata_list : list
+            A list of dictionaries containing metadata about each query.
+    """
+    return getLinesAsDataFrames(band.value[0], band.value[1], 
+                                 species_dataframe=species_dataframe, 
+                                 nodes_dataframe=nodes_dataframe)
+

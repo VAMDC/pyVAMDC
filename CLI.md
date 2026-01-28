@@ -335,8 +335,8 @@ Get spectral lines for one or more species from one or more nodes.
 - `--node TEXT`: Node identifier - TAP endpoint, IVO ID, or shortname (**can be specified multiple times**)
 - `--lambda-min FLOAT`: Minimum wavelength in Angstrom (default: 0.0)
 - `--lambda-max FLOAT`: Maximum wavelength in Angstrom (default: 1.0e9)
-- `-f, --format [xsams|slap2|csv|json|table]`: Output format (default: table)
-- `-o, --output PATH`: Output file path (tabular) or directory (XSAMS/SLAP2). Default for XSAMS/SLAP2: cache directory
+- `-f, --format [xsams|slap2|csv|json|table|parquet]`: Output format (default: table)
+- `-o, --output PATH`: Output file path (tabular) or directory (XSAMS/SLAP2/parquet). Default for XSAMS/SLAP2: cache directory
 - `--accept-truncation`: Accept truncated results without recursive splitting
 
 **Output format behavior:**
@@ -348,6 +348,13 @@ Get spectral lines for one or more species from one or more nodes.
   - Custom location: Specify with `--output /path/to/dir`
   - One file per data node and species type (atomic/molecular)
   - Filename pattern: `slap2_lines_{NODE}_{SPECIES_TYPE}_{TIMESTAMP}.xml`
+- **parquet**: Columnar binary format (memory-efficient)
+  - Stored in `QueryResults/` directory
+  - One aggregated parquet file per node and species type
+  - Filename pattern: `{atomic|molecular}_{NODE}_{LAMBDA_MIN}_{LAMBDA_MAX}_{TIMESTAMP}.parquet`
+  - Suitable for large datasets (efficient memory usage)
+  - Compatible with pandas, DuckDB, Apache Arrow, and Apache Spark
+  - Optional: Copy files to custom directory with `--output /path/to/dir`
 - **csv/json/table**: Converted tabular data with columns:
   - All spectroscopic line data fields
   - `node`: TAP endpoint of the data source
@@ -467,6 +474,73 @@ Fetching lines...
 Retrieved atomic data from 2 node(s)
 Total spectral lines retrieved: 10079
 Lines saved to lines.csv
+```
+
+#### Parquet format output (memory-efficient for large datasets)
+```bash
+# Get data as parquet files (efficient columnar storage)
+vamdc get lines \
+  --inchikey=LFQSCWFLJHTTHZ-UHFFFAOYSA-N \
+  --lambda-min=100000 \
+  --lambda-max=200000 \
+  --format parquet
+
+# With custom output directory
+vamdc get lines \
+  --inchikey=LFQSCWFLJHTTHZ-UHFFFAOYSA-N \
+  --node=cdms \
+  --lambda-min=100000 \
+  --lambda-max=200000 \
+  --format parquet \
+  --output /archive/parquet_files/
+```
+
+**Sample output with `--format parquet`:**
+```
+Querying spectral lines...
+Wavelength range: 100000.0 - 200000.0 Angstrom
+Filtering for 1 species...
+Found 2 species entries matching InChIKeys
+Fetching lines...
+Retrieved molecular data from 1 node(s)
+Processing parquet files...
+
+Generated 1 parquet file(s):
+  molecular_cdms_1.00e+05_2.00e+05_20260128T153000.parquet (12.45 MB)
+    Node: https://cdms.astro.uni-koeln.de/cdms/tap/
+    Type: molecule
+    Path: /Users/user/project/QueryResults/molecular_cdms_1.00e+05_2.00e+05_20260128T153000.parquet
+
+Total size: 12.45 MB
+```
+
+**Key benefits of parquet format:**
+- ✅ **Memory efficient**: Data stored on disk, not loaded entirely into RAM
+- ✅ **Columnar storage**: Optimized for analytical queries and column-based operations
+- ✅ **Compressed**: Smaller file sizes compared to CSV
+- ✅ **Fast queries**: Efficient reading of specific columns without loading entire dataset
+- ✅ **Compatible**: Works with pandas, DuckDB, Apache Arrow, Apache Spark, and other data tools
+- ✅ **Type-safe**: Preserves data types (no string/number confusion like CSV)
+
+**When to use parquet format:**
+- Large datasets that might cause memory issues with CSV/JSON
+- When you need to process data with pandas, DuckDB, or other analytics tools
+- When disk space is a concern (parquet is more compressed than CSV)
+- When you want to preserve exact data types and precision
+
+**Reading parquet files in Python:**
+```python
+import pandas as pd
+import duckdb
+
+# Using pandas
+df = pd.read_parquet('molecular_cdms_1.00e+05_2.00e+05_20260128T153000.parquet')
+
+# Using DuckDB (for SQL queries without loading to memory)
+result = duckdb.query(
+    "SELECT * FROM 'molecular_cdms_1.00e+05_2.00e+05_20260128T153000.parquet' "
+    "WHERE \"Wavelength (m)\" < 0.0002"
+).to_df()
 ```
 
 #### SLAP2 VOTable output

@@ -534,8 +534,8 @@ def species_cmd(ctx: click.Context, format: str, output: Optional[str], refresh:
               help=f'Minimum wavelength in Angstrom (default: {DEFAULT_LAMBDA_MIN:g})')
 @click.option('--lambda-max', type=float, default=DEFAULT_LAMBDA_MAX,
               help=f'Maximum wavelength in Angstrom (default: {DEFAULT_LAMBDA_MAX:g})')
-@click.option('--format', '-f', type=click.Choice(['xsams', 'slap2', 'csv', 'json', 'table']),
-              default='table', help='Output format (xsams/slap2: raw XML files, csv/json/table: converted tabular data)')
+@click.option('--format', '-f', type=click.Choice(['xsams', 'slap2', 'csv', 'json', 'table', 'parquet']),
+              default='table', help='Output format (xsams/slap2: raw XML files, csv/json/table: converted tabular data, parquet: columnar files)')
 @click.option('--output', '-o', type=click.Path(), help='Output file path (tabular) or directory (XSAMS/SLAP2). Default for XSAMS/SLAP2: cache directory')
 @click.option('--accept-truncation', is_flag=True, help='Accept truncated query results without recursive splitting')
 @click.pass_context
@@ -545,7 +545,10 @@ def lines(ctx: click.Context, inchikey: tuple, node: tuple, lambda_min: float,
 
     This command uses the high-level getLines wrapper, which supports multiple species
     and multiple nodes in a single query. Results can be returned as raw XSAMS or SLAP2 XML files,
-    or converted to tabular formats (CSV, JSON, table).
+    or converted to tabular formats (CSV, JSON, table, parquet).
+
+    The parquet format is memory-efficient and suitable for large datasets, storing data in
+    columnar format without loading it all into memory at once.
 
     Example:
         vamdc get lines --inchikey=LFQSCWFLJHTTHZ-UHFFFAOYSA-N --lambda-min=3000 --lambda-max=5000
@@ -553,6 +556,7 @@ def lines(ctx: click.Context, inchikey: tuple, node: tuple, lambda_min: float,
                         --node=basecol --node=cdms --lambda-min=3000 --lambda-max=5000 --format csv
         vamdc get lines --inchikey=LFQSCWFLJHTTHZ-UHFFFAOYSA-N --format xsams --output ./my_xsams_files
         vamdc get lines --inchikey=LFQSCWFLJHTTHZ-UHFFFAOYSA-N --format slap2 --output ./my_votables/
+        vamdc get lines --inchikey=LFQSCWFLJHTTHZ-UHFFFAOYSA-N --format parquet --lambda-min=3000 --lambda-max=5000
     """
     try:
         if lambda_max <= lambda_min:
@@ -600,15 +604,29 @@ def lines(ctx: click.Context, inchikey: tuple, node: tuple, lambda_min: float,
                 click.echo(f"Error: {e}", err=True)
                 sys.exit(1)
 
-        # Call the high-level getLines function
+        # Call the appropriate function based on format
+        # For xsams and parquet, use getLines() which returns parquet paths
+        # For slap2, csv, json, table, use getLinesAsDataFrames() which loads DataFrames
         click.echo("Fetching lines...", err=True)
-        atomic_dict, molecular_dict, queries_metadata = lines_module.getLines(
-            lambdaMin=lambda_min,
-            lambdaMax=lambda_max,
-            species_dataframe=filtered_species_df,
-            nodes_dataframe=filtered_nodes_df,
-            acceptTruncation=accept_truncation
-        )
+        
+        if format in ['xsams', 'parquet']:
+            # Use parquet-based getLines() - returns parquet paths, not DataFrames
+            atomic_dict, molecular_dict, queries_metadata = lines_module.getLines(
+                lambdaMin=lambda_min,
+                lambdaMax=lambda_max,
+                species_dataframe=filtered_species_df,
+                nodes_dataframe=filtered_nodes_df,
+                acceptTruncation=accept_truncation
+            )
+        else:
+            # Use DataFrame-based getLinesAsDataFrames() - returns DataFrames in memory
+            atomic_dict, molecular_dict, queries_metadata = lines_module.getLinesAsDataFrames(
+                lambdaMin=lambda_min,
+                lambdaMax=lambda_max,
+                species_dataframe=filtered_species_df,
+                nodes_dataframe=filtered_nodes_df,
+                acceptTruncation=accept_truncation
+            )
 
         # Handle SLAP2 VOTable format output
         if format == 'slap2':
@@ -680,6 +698,60 @@ def lines(ctx: click.Context, inchikey: tuple, node: tuple, lambda_min: float,
             click.echo(f"\nDownloaded {len(moved_files)} XSAMS file(s) to {output_dir}:")
             for file_path in moved_files:
                 click.echo(f"  {file_path}")
+            
+            return
+
+        # Handle parquet format output
+        if format == 'parquet':
+            # For parquet format, display the parquet file paths and their sizes
+            click.echo("Processing parquet files...", err=True)
+            
+            parquet_files = []
+            total_size = 0
+            
+            # Collect parquet files from atomic_dict
+            if atomic_dict:
+                for node_id, parquet_path in atomic_dict.items():
+                    parquet_files.append((node_id, 'atom', parquet_path))
+            
+            # Collect parquet files from molecular_dict
+            if molecular_dict:
+                for node_id, parquet_path in molecular_dict.items():
+                    parquet_files.append((node_id, 'molecule', parquet_path))
+            
+            if not parquet_files:
+                click.echo("No parquet files generated.", err=True)
+                sys.exit(0)
+            
+            click.echo(f"\nGenerated {len(parquet_files)} parquet file(s):")
+            for node_id, species_type, parquet_path in parquet_files:
+                path_obj = Path(parquet_path)
+                if path_obj.exists():
+                    size = path_obj.stat().st_size
+                    total_size += size
+                    size_mb = size / (1024 * 1024)
+                    click.echo(f"  {path_obj.name} ({size_mb:.2f} MB)")
+                    click.echo(f"    Node: {node_id}")
+                    click.echo(f"    Type: {species_type}")
+                    click.echo(f"    Path: {parquet_path}")
+            
+            total_size_mb = total_size / (1024 * 1024)
+            click.echo(f"\nTotal size: {total_size_mb:.2f} MB")
+            
+            # If user specified an output directory, copy files there
+            if output:
+                output_dir = Path(output).expanduser()
+                output_dir.mkdir(parents=True, exist_ok=True)
+                click.echo(f"\nCopying parquet files to {output_dir}...", err=True)
+                
+                for node_id, species_type, parquet_path in parquet_files:
+                    src_path = Path(parquet_path)
+                    if src_path.exists():
+                        dst_path = output_dir / src_path.name
+                        shutil.copy2(src_path, dst_path)
+                        click.echo(f"  Copied {src_path.name}")
+                
+                click.echo(f"All parquet files copied to {output_dir}")
             
             return
 
