@@ -1,11 +1,19 @@
 """
 SLAP2 (Simple Line Access Protocol v2.0) VOTable generation module.
 
-This module provides functionality to convert species data from getSpeciesWithRestrictions
+This module provides functionality to convert species and spectroscopic lines data 
 into SLAP2-compliant VOTable XML files, grouped by data nodes (service providers).
 
-The module follows the SLAP2 specification for the {species} resource, creating VOTable
-documents with proper metadata, field definitions, and species data organized by node.
+The module follows the SLAP2 specification for both {species} and {lines} resources,
+creating VOTable documents with proper metadata, field definitions, and data organized by node.
+
+Usage:
+    For species data:
+        - Use create_slap2_votables_from_species() with filter parameters
+    
+    For spectroscopic lines:
+        - Use getLinesAsDataFrames() to get DataFrames, then create_slap2_votables_from_lines()
+        - Or use getLines() to get parquet paths, then create_slap2_votables_from_parquet_paths()
 
 Reference: SLAP2 specification - Simple Line Access Protocol v2.0
 """
@@ -1006,17 +1014,21 @@ class SLAP2LinesVOTableGenerator:
         """
         Generate SLAP2-compliant VOTable files for spectroscopic lines grouped by nodes.
 
-        This method takes the output from getLines() and creates a separate VOTable
+        This method takes the output from getLinesAsDataFrames() and creates a separate VOTable
         file for each database (VAMDC node), following the SLAP2 specification which
         requires that line VOTables contain only data for a given service.
+        
+        Note: If you have the output from getLines() (which returns parquet file paths),
+        use getLinesAsDataFrames() to convert to DataFrames first, or let the
+        convenience function create_slap2_votables_from_lines() handle it automatically.
 
         Args:
             atomic_results_dict (Dict[str, pd.DataFrame]): Dictionary with node endpoints as keys
-                and DataFrames of atomic lines as values. Typically from getLines().
+                and DataFrames of atomic lines as values. From getLinesAsDataFrames().
             molecular_results_dict (Dict[str, pd.DataFrame]): Dictionary with node endpoints as keys
-                and DataFrames of molecular lines as values. Typically from getLines().
+                and DataFrames of molecular lines as values. From getLinesAsDataFrames().
             queries_metadata_list (List[Dict[str, Any]]): List of query metadata dictionaries
-                containing information about each query execution. Typically from getLines().
+                containing information about each query execution. From getLinesAsDataFrames().
             lambdaMin (float, optional): Minimum wavelength boundary in Angstroms for metadata.
                 Defaults to None.
             lambdaMax (float, optional): Maximum wavelength boundary in Angstroms for metadata.
@@ -1037,22 +1049,21 @@ class SLAP2LinesVOTableGenerator:
             IOError: If VOTable files cannot be written.
 
         Example:
-            >>> from pyVAMDC.spectral.lines import getLines
+            >>> from pyVAMDC.spectral.lines import getLinesAsDataFrames
             >>> from pyVAMDC.spectral.slap import SLAP2LinesVOTableGenerator
             >>>
-            >>> # Get lines from VAMDC
-            >>> atomic_dict, molecular_dict, metadata = getLines(
-            ...     lambdaMin=1000e-10,  # 1000 Angstroms in meters
-            ...     lambdaMax=2000e-10,
-            ...     verbose=False
+            >>> # Get lines from VAMDC as DataFrames
+            >>> atomic_dict, molecular_dict, metadata = getLinesAsDataFrames(
+            ...     lambdaMin=1000.0,  # 1000 Angstroms
+            ...     lambdaMax=2000.0
             ... )
             >>>
             >>> # Generate VOTables
             >>> generator = SLAP2LinesVOTableGenerator(output_directory='/path/to/output')
             >>> results = generator.generate_votables_for_lines(
             ...     atomic_dict, molecular_dict, metadata,
-            ...     lambdaMin=1000e-10,
-            ...     lambdaMax=2000e-10
+            ...     lambdaMin=1000.0,
+            ...     lambdaMax=2000.0
             ... )
             >>>
             >>> for result in results:
@@ -1464,15 +1475,19 @@ def create_slap2_votables_from_lines(
 
     This is the main entry point for generating SLAP2-compliant VOTable XML files for
     spectroscopic lines grouped by data nodes. The function is typically used with the
-    output of getLines() from the 'lines' module.
+    output of getLinesAsDataFrames() from the 'lines' module.
+    
+    Note: If you have the output from getLines() (which returns parquet file paths),
+    use getLinesAsDataFrames() instead, or pass the parquet paths to 
+    create_slap2_votables_from_parquet_paths() which will load them automatically.
 
     Args:
         atomic_results_dict (Dict[str, pd.DataFrame]): Dictionary with node endpoints as keys
-            and DataFrames of atomic lines as values. Output from getLines().
+            and DataFrames of atomic lines as values. Output from getLinesAsDataFrames().
         molecular_results_dict (Dict[str, pd.DataFrame]): Dictionary with node endpoints as keys
-            and DataFrames of molecular lines as values. Output from getLines().
+            and DataFrames of molecular lines as values. Output from getLinesAsDataFrames().
         queries_metadata_list (List[Dict[str, Any]]): List of query metadata dictionaries
-            containing information about each query execution. Output from getLines().
+            containing information about each query execution. Output from getLinesAsDataFrames().
         lambdaMin (float, optional): Minimum wavelength boundary in Angstroms for metadata.
             Defaults to None.
         lambdaMax (float, optional): Maximum wavelength boundary in Angstroms for metadata.
@@ -1495,14 +1510,13 @@ def create_slap2_votables_from_lines(
         IOError: If VOTable files cannot be written.
 
     Example:
-        >>> from pyVAMDC.spectral.lines import getLines
+        >>> from pyVAMDC.spectral.lines import getLinesAsDataFrames
         >>> from pyVAMDC.spectral.slap import create_slap2_votables_from_lines
         >>>
-        >>> # Get spectroscopic lines from VAMDC
-        >>> atomic_dict, molecular_dict, metadata = getLines(
-        ...     lambdaMin=1000e-10,  # 1000 Angstroms in meters
-        ...     lambdaMax=2000e-10,
-        ...     verbose=False
+        >>> # Get spectroscopic lines from VAMDC as DataFrames
+        >>> atomic_dict, molecular_dict, metadata = getLinesAsDataFrames(
+        ...     lambdaMin=1000.0,  # 1000 Angstroms
+        ...     lambdaMax=2000.0
         ... )
         >>>
         >>> # Generate SLAP2 VOTables
@@ -1510,8 +1524,8 @@ def create_slap2_votables_from_lines(
         ...     atomic_dict,
         ...     molecular_dict,
         ...     metadata,
-        ...     lambdaMin=1000e-10,
-        ...     lambdaMax=2000e-10,
+        ...     lambdaMin=1000.0,
+        ...     lambdaMax=2000.0,
         ...     output_directory='/path/to/output'
         ... )
         >>>
@@ -1524,4 +1538,107 @@ def create_slap2_votables_from_lines(
     generator = SLAP2LinesVOTableGenerator(output_directory=output_directory)
     return generator.generate_votables_for_lines(
         atomic_results_dict, molecular_results_dict, queries_metadata_list, lambdaMin, lambdaMax
+    )
+
+
+def create_slap2_votables_from_parquet_paths(
+    atomic_parquet_paths: Dict[str, str],
+    molecular_parquet_paths: Dict[str, str],
+    queries_metadata_list: List[Dict[str, Any]],
+    lambdaMin: Optional[float] = None,
+    lambdaMax: Optional[float] = None,
+    output_directory: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """
+    Convenience function to generate SLAP2-compliant VOTable files from parquet file paths.
+
+    This function accepts the direct output from getLines() (which returns parquet file paths)
+    and automatically loads the parquet files as DataFrames before generating VOTable files.
+    
+    For better memory efficiency with very large datasets, consider loading and processing
+    one node at a time instead of loading all data into memory at once.
+
+    Args:
+        atomic_parquet_paths (Dict[str, str]): Dictionary with node endpoints as keys
+            and parquet file paths (strings) as values for atomic lines. Direct output from getLines().
+        molecular_parquet_paths (Dict[str, str]): Dictionary with node endpoints as keys
+            and parquet file paths (strings) as values for molecular lines. Direct output from getLines().
+        queries_metadata_list (List[Dict[str, Any]]): List of query metadata dictionaries.
+            Output from getLines().
+        lambdaMin (float, optional): Minimum wavelength boundary in Angstroms for metadata.
+            Defaults to None.
+        lambdaMax (float, optional): Maximum wavelength boundary in Angstroms for metadata.
+            Defaults to None.
+        output_directory (str, optional): Directory where VOTable files will be saved.
+            If None, a temporary directory is used. Defaults to None.
+
+    Returns:
+        List[Dict[str, Any]]: List of dictionaries, each containing:
+            - 'species_type': Type of species ('atomic' or 'molecular')
+            - 'node_endpoint': Node TAP endpoint identifier
+            - 'lambdaMin': Minimum wavelength boundary
+            - 'lambdaMax': Maximum wavelength boundary
+            - 'lines_count': Number of lines in this VOTable
+            - 'votable_filepath': Absolute path to the generated VOTable XML file
+            - 'generation_timestamp': ISO format timestamp
+
+    Raises:
+        ValueError: If both parquet path dictionaries are empty.
+        FileNotFoundError: If parquet files don't exist at specified paths.
+        IOError: If parquet files cannot be read or VOTable files cannot be written.
+
+    Example:
+        >>> from pyVAMDC.spectral.lines import getLines
+        >>> from pyVAMDC.spectral.slap import create_slap2_votables_from_parquet_paths
+        >>>
+        >>> # Get spectroscopic lines from VAMDC (returns parquet paths)
+        >>> atomic_paths, molecular_paths, metadata = getLines(
+        ...     lambdaMin=1000.0,  # 1000 Angstroms
+        ...     lambdaMax=2000.0
+        ... )
+        >>>
+        >>> # Generate SLAP2 VOTables directly from parquet paths
+        >>> results = create_slap2_votables_from_parquet_paths(
+        ...     atomic_paths,
+        ...     molecular_paths,
+        ...     metadata,
+        ...     lambdaMin=1000.0,
+        ...     lambdaMax=2000.0,
+        ...     output_directory='/path/to/output'
+        ... )
+        >>>
+        >>> # Use results
+        >>> for result in results:
+        ...     print(f"Species type: {result['species_type']}")
+        ...     print(f"Lines count: {result['lines_count']}")
+        ...     print(f"VOTable path: {result['votable_filepath']}")
+    """
+    LOGGER.info("Loading parquet files into DataFrames for VOTable generation")
+    
+    # Load atomic parquet files into DataFrames
+    atomic_dfs = {}
+    for node, path in atomic_parquet_paths.items():
+        if path and Path(path).exists():
+            LOGGER.debug(f"Loading atomic parquet for {node} from {path}")
+            atomic_dfs[node] = pd.read_parquet(path)
+        else:
+            LOGGER.warning(f"Atomic parquet file not found for {node}: {path}")
+    
+    # Load molecular parquet files into DataFrames
+    molecular_dfs = {}
+    for node, path in molecular_parquet_paths.items():
+        if path and Path(path).exists():
+            LOGGER.debug(f"Loading molecular parquet for {node} from {path}")
+            molecular_dfs[node] = pd.read_parquet(path)
+        else:
+            LOGGER.warning(f"Molecular parquet file not found for {node}: {path}")
+    
+    # Generate VOTables from DataFrames
+    return create_slap2_votables_from_lines(
+        atomic_dfs,
+        molecular_dfs,
+        queries_metadata_list,
+        lambdaMin=lambdaMin,
+        lambdaMax=lambdaMax,
+        output_directory=output_directory,
     )
