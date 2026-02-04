@@ -307,12 +307,12 @@ class VamdcQuery:
             base_name, unit = parse_column_with_unit(col)
             base_lower = base_name.lower()
 
-            # Wavelength variants
-            if any(wl in base_lower for wl in ['wavelength', 'wave', 'wl']):
-                wavelength_columns[col] = unit
-            # Energy variants (including wavenumber)
-            elif any(en in base_lower for en in ['energy', 'wavenumber']):
+            # Energy variants (including wavenumber) - check FIRST to avoid 'wavenumber' matching 'wave'
+            if any(en in base_lower for en in ['energy', 'wavenumber']):
                 energy_columns[col] = unit
+            # Wavelength variants
+            elif any(wl in base_lower for wl in ['wavelength', 'wave', 'wl']):
+                wavelength_columns[col] = unit
             # Frequency variants
             elif any(fr in base_lower for fr in ['frequency', 'freq']):
                 frequency_columns[col] = unit
@@ -365,11 +365,19 @@ class VamdcQuery:
                 energy_unit = energy_columns[energy_col]
 
                 if energy_unit is None:
-                    # Assume eV if no unit specified
-                    LOGGER.warning(
-                        f"Energy column '{energy_col}' has no unit specified, assuming eV"
-                    )
-                    energy_unit = 'eV'
+                    # Check if column name contains 'wavenumber' - assume cm^-1
+                    base_name, _ = parse_column_with_unit(energy_col)
+                    if 'wavenumber' in base_name.lower():
+                        LOGGER.warning(
+                            f"Wavenumber column '{energy_col}' has no unit specified, assuming cm^-1"
+                        )
+                        energy_unit = 'cm^-1'
+                    else:
+                        # Assume eV if no unit specified for other energy columns
+                        LOGGER.warning(
+                            f"Energy column '{energy_col}' has no unit specified, assuming eV"
+                        )
+                        energy_unit = 'eV'
                 else:
                     # Normalize unit name for energyConverter
                     energy_unit = normalize_unit(energy_unit)
