@@ -52,8 +52,21 @@ def _sanitize_node_name(node_endpoint, for_directory=False):
                 # Fallback: use all parts joined with underscores
                 return "_".join(parts).replace("-", "_").replace(":", "_")
         else:
-            # For regular URLs, extract the domain name
-            return clean_name.split("/")[0].split(".")[0]
+            # For regular URLs like "http://vamdc.icb.cnrs.fr/tap/" or "https://cdms.astro.uni-koeln.de/cdms/tap/"
+            # Extract a meaningful name from the domain
+            domain = clean_name.split("/")[0]  # e.g., "vamdc.icb.cnrs.fr" or "cdms.astro.uni-koeln.de"
+            domain_parts = domain.split(".")
+            
+            # If domain starts with "vamdc", use the second part (e.g., "icb" from "vamdc.icb.cnrs.fr")
+            # Otherwise use the first part (e.g., "cdms" from "cdms.astro.uni-koeln.de")
+            if domain_parts[0] == "vamdc" and len(domain_parts) > 1:
+                # Use the second and possibly third part for more context
+                # e.g., "vamdc.icb.cnrs.fr" -> "icb_cnrs"
+                meaningful_parts = domain_parts[1:3]  # Take up to 2 parts after "vamdc"
+                return "_".join(meaningful_parts).replace("-", "_")
+            else:
+                # Use the first part (subdomain) which is usually the database name
+                return domain_parts[0].replace("-", "_")
     else:
         # Create a full sanitized filename with underscores
         return clean_name.replace("/", "_").replace(":", "_").replace("-", "_")
