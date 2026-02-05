@@ -327,8 +327,8 @@
                                   </xsl:if>
                               </tr>
                           </thead>
-                          <tbody>    
-                              <xsl:for-each select="/xsams:XSAMSData/xsams:Processes/xsams:Radiative/xsams:RadiativeTransition">
+                          <tbody>
+                              <xsl:for-each select="/xsams:XSAMSData/xsams:Processes/xsams:Radiative/xsams:RadiativeTransition[key('atomicState', xsams:LowerStateRef)]">
                                   <xsl:call-template name="fillTransitionTable">
                                       <xsl:with-param name="radTran" select="."/>
                                   </xsl:call-template>
