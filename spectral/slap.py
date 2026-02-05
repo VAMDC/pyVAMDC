@@ -976,13 +976,13 @@ class SLAP2LinesVOTableGenerator:
                 energy_unit = energy_columns[energy_col]
 
                 if energy_unit is None:
-                    # Check if column name contains 'wavenumber' - assume cm^-1
+                    # Check if column name contains 'wavenumber' - assume cm-1
                     base_name, _ = parse_column_with_unit(energy_col)
                     if 'wavenumber' in base_name.lower():
                         LOGGER.warning(
-                            f"Wavenumber column '{energy_col}' has no unit specified, assuming cm^-1"
+                            f"Wavenumber column '{energy_col}' has no unit specified, assuming cm-1"
                         )
-                        energy_unit = 'cm^-1'
+                        energy_unit = 'cm-1'
                     else:
                         # Assume eV if no unit specified for other energy columns
                         LOGGER.warning(
