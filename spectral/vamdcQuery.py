@@ -7,6 +7,7 @@ import uuid
 import json
 import re
 import numpy as np
+import time
 from typing import Tuple, Optional
 from pyVAMDC.spectral.logging_config import get_logger
 from pyVAMDC.spectral.energyConverter import electromagnetic_conversion
@@ -74,8 +75,8 @@ class VamdcQuery:
 
     # Constants for HTTP headers
     USER_AGENT_QUERY_STORE = 'VAMDC Query store'
-    #DEFAULT_USER_AGENT = 'VAMDC Query store'
-    DEFAULT_USER_AGENT = 'pyVAMDC v0.1'
+    DEFAULT_USER_AGENT = 'VAMDC Query store'
+    #DEFAULT_USER_AGENT = 'pyVAMDC v0.1'
 
     def __init__(self, nodeEndpoint, lambdaMin, lambdaMax, InchiKey, speciesType, totalListOfQueries, acceptTruncation = False):
       """ This is the constructor of the VAMDCQuery class. 
@@ -194,7 +195,11 @@ class VamdcQuery:
       This method executes a GET request on the current query instance to extract data from the VAMDC infrastructure.
       The data extraction is performed only if the query will contain data and will not be truncated 
       (those states are checked running HEAD request in the object constructor).
-      The dowloaded data are stored with the filename from the attribute XSAMSFileName
+      The dowloaded data are stored with the filename from the attribute XSAMSFileName.
+      
+      Implements retry logic with exponential backoff (3 attempts) for transient network errors.
+      If all attempts fail, the query is marked as failed (queryToken=None, XSAMSFileName=None)
+      and will be skipped during DataFrame conversion.
       """
       # to be changed in the final version of the lib. This option desactivate the Query Store notifications
       headers = {'User-Agent': self.DEFAULT_USER_AGENT}
@@ -202,7 +207,39 @@ class VamdcQuery:
       
       # we get the data only if there is data and the request is not truncated
       if self.hasData is True and (self.truncated is False or self.acceptTruncation):
-        queryResult = requests.get(self.vamdcCall, headers=headers)
+        max_attempts = 3
+        queryResult = None
+        
+        for attempt in range(max_attempts):
+            try:
+                queryResult = requests.get(self.vamdcCall, headers=headers, timeout=300)
+                # If successful, break out of retry loop
+                break
+            except (requests.exceptions.ChunkedEncodingError, 
+                    requests.exceptions.ConnectionError,
+                    requests.exceptions.Timeout) as e:
+                if attempt < max_attempts - 1:
+                    wait_time = 2 ** attempt  # 1, 2, 4 seconds
+                    LOGGER.warning(
+                        f"Request failed for {self.InchiKey} (attempt {attempt + 1}/{max_attempts}), "
+                        f"retrying in {wait_time}s... Error: {type(e).__name__}"
+                    )
+                    time.sleep(wait_time)
+                else:
+                    LOGGER.error(
+                        f"All {max_attempts} attempts failed for {self.InchiKey} on {self.nodeEndpoint}",
+                        exception=e,
+                        show_traceback=False
+                    )
+                    # Mark as failed - convertToDataFrame will skip this query
+                    self.XSAMSFileName = None
+                    return
+        
+        # If we get here without a queryResult, something went wrong
+        if queryResult is None:
+            LOGGER.error(f"No response received for {self.InchiKey} on {self.nodeEndpoint}")
+            self.XSAMSFileName = None
+            return
         
         self.queryToken = queryResult.headers.get('VAMDC-REQUEST-TOKEN')
         
@@ -365,13 +402,13 @@ class VamdcQuery:
                 energy_unit = energy_columns[energy_col]
 
                 if energy_unit is None:
-                    # Check if column name contains 'wavenumber' - assume cm^-1
+                    # Check if column name contains 'wavenumber' - assume cm-1
                     base_name, _ = parse_column_with_unit(energy_col)
                     if 'wavenumber' in base_name.lower():
                         LOGGER.warning(
-                            f"Wavenumber column '{energy_col}' has no unit specified, assuming cm^-1"
+                            f"Wavenumber column '{energy_col}' has no unit specified, assuming cm-1"
                         )
-                        energy_unit = 'cm^-1'
+                        energy_unit = 'cm-1'
                     else:
                         # Assume eV if no unit specified for other energy columns
                         LOGGER.warning(
@@ -465,7 +502,10 @@ class VamdcQuery:
           # Write DataFrame to parquet file in QueryResults directory
           query_results_dir = Path.cwd() / "QueryResults"
           query_results_dir.mkdir(exist_ok=True)
-          self.parquet_path = query_results_dir / f"{self.localUUID}.parquet"
+          
+          # Use queryToken if available, otherwise use localUUID (same logic as XSAMS files)
+          parquet_filename = self.queryToken if self.queryToken else self.localUUID
+          self.parquet_path = query_results_dir / f"{parquet_filename}.parquet"
           
           self.lines_df.to_parquet(self.parquet_path, index=False)
           
