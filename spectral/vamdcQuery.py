@@ -75,8 +75,8 @@ class VamdcQuery:
 
     # Constants for HTTP headers
     USER_AGENT_QUERY_STORE = 'VAMDC Query store'
-    DEFAULT_USER_AGENT = 'VAMDC Query store'
-    #DEFAULT_USER_AGENT = 'pyVAMDC v0.1'
+    #DEFAULT_USER_AGENT = 'VAMDC Query store'
+    DEFAULT_USER_AGENT = 'pyVAMDC v0.1'
 
     def __init__(self, nodeEndpoint, lambdaMin, lambdaMax, InchiKey, speciesType, totalListOfQueries, acceptTruncation = False):
       """ This is the constructor of the VAMDCQuery class. 
@@ -221,13 +221,18 @@ class VamdcQuery:
                 if attempt < max_attempts - 1:
                     wait_time = 2 ** attempt  # 1, 2, 4 seconds
                     LOGGER.warning(
-                        f"Request failed for {self.InchiKey} (attempt {attempt + 1}/{max_attempts}), "
-                        f"retrying in {wait_time}s... Error: {type(e).__name__}"
+                        f"Request failed for {self.InchiKey} "
+                        f"(wavelength {self.lambdaMin}-{self.lambdaMax} Å) "
+                        f"(attempt {attempt + 1}/{max_attempts}), "
+                        f"retrying in {wait_time}s... Error: {type(e).__name__}\n"
+                        f"Query: {self.vamdcCall}"
                     )
                     time.sleep(wait_time)
                 else:
                     LOGGER.error(
-                        f"All {max_attempts} attempts failed for {self.InchiKey} on {self.nodeEndpoint}",
+                        f"All {max_attempts} attempts failed for {self.InchiKey} "
+                        f"(wavelength {self.lambdaMin}-{self.lambdaMax} Å) on {self.nodeEndpoint}\n"
+                        f"Query: {self.vamdcCall}",
                         exception=e,
                         show_traceback=False
                     )
@@ -450,46 +455,162 @@ class VamdcQuery:
 
        # if the data are there (we chek the presence with the Query Token)
        if self.queryToken is not None or os.path.exists(self.XSAMSFileName):
-          #xsltfile = ET.XSLT(ET.parse("/home/zwolf/Work/PythonDev/pyVAMDC/xsl/atomicxsams2html.xsl"))
-          #xmlfile = ET.parse(resultFileName)
-          #output = xsltfile(xmlfile).write_output('test1.html')
-
-          #tableHTML = pd.read_html("test1.html")
-
-          #print(tableHTML[0])
-          #print(tableHTML[1])
-         
-          xml_doc = ET.parse(self.XSAMSFileName)
-
           # Get the full path of the current script
           script_path = Path(__file__).resolve()
 
           # Get the parent directory of the script
           parent_dir = script_path.parent.parent
 
-          # Load the XSL file, according to the type of transormation needed 
+          # Determine XSL file path based on species type
           if self.speciesType == "atom":
-            xslt_doc = ET.parse(str(parent_dir)+"/xsl/atomicxsams2html.xsl")
+            xsl_path = str(parent_dir) + "/xsl/atomicxsams2html.xsl"
+          elif self.speciesType == "molecule":
+            xsl_path = str(parent_dir) + "/xsl/molecularxsams2html.xsl"
+          else:
+            LOGGER.error(
+                f"Unknown speciesType '{self.speciesType}' for query. "
+                f"Expected 'atom' or 'molecule'.\n"
+                f"  InchiKey: {self.InchiKey}\n"
+                f"  Wavelength: {self.lambdaMin}-{self.lambdaMax} Å\n"
+                f"  Node: {self.nodeEndpoint}\n"
+                f"  XSAMS file: {self.XSAMSFileName}"
+            )
+            return
 
-          if self.speciesType == "molecule":
-            xslt_doc = ET.parse(str(parent_dir)+"/xsl/molecularxsams2html.xsl")
+          # Parse XSAMS XML file
+          try:
+              xml_doc = ET.parse(self.XSAMSFileName)
+          except ET.XMLSyntaxError as e:
+              LOGGER.error(
+                  f"XML syntax error parsing XSAMS file.\n"
+                  f"  XSAMS file: {self.XSAMSFileName}\n"
+                  f"  InchiKey: {self.InchiKey}\n"
+                  f"  Wavelength: {self.lambdaMin}-{self.lambdaMax} Å\n"
+                  f"  Node: {self.nodeEndpoint}\n"
+                  f"  Query: {self.vamdcCall}\n"
+                  f"  Error: {e}",
+                  exception=e,
+                  show_traceback=False
+              )
+              return
+          except Exception as e:
+              LOGGER.error(
+                  f"Failed to parse XSAMS file.\n"
+                  f"  XSAMS file: {self.XSAMSFileName}\n"
+                  f"  InchiKey: {self.InchiKey}\n"
+                  f"  Wavelength: {self.lambdaMin}-{self.lambdaMax} Å\n"
+                  f"  Node: {self.nodeEndpoint}\n"
+                  f"  Query: {self.vamdcCall}",
+                  exception=e,
+                  show_traceback=True
+              )
+              return
 
-          transform = ET.XSLT(xslt_doc)
+          # Parse XSL stylesheet
+          try:
+              xslt_doc = ET.parse(xsl_path)
+              transform = ET.XSLT(xslt_doc)
+          except Exception as e:
+              LOGGER.error(
+                  f"Failed to load or compile XSL stylesheet.\n"
+                  f"  XSL file: {xsl_path}\n"
+                  f"  Species type: {self.speciesType}\n"
+                  f"  InchiKey: {self.InchiKey}",
+                  exception=e,
+                  show_traceback=True
+              )
+              return
 
           # Perform the transformation
-          result = transform(xml_doc)
+          try:
+              result = transform(xml_doc)
+              
+              # Check for XSLT transformation errors
+              if transform.error_log:
+                  for entry in transform.error_log:
+                      if entry.level_name in ('ERROR', 'FATAL'):
+                          LOGGER.warning(
+                              f"XSLT transformation error: {entry.message}\n"
+                              f"  Line {entry.line}, Column {entry.column}\n"
+                              f"  XSAMS file: {self.XSAMSFileName}\n"
+                              f"  XSL file: {xsl_path}"
+                          )
+          except ET.XSLTApplyError as e:
+              LOGGER.error(
+                  f"XSL transformation failed.\n"
+                  f"  XSAMS file: {self.XSAMSFileName}\n"
+                  f"  XSL file: {xsl_path}\n"
+                  f"  InchiKey: {self.InchiKey}\n"
+                  f"  Wavelength: {self.lambdaMin}-{self.lambdaMax} Å\n"
+                  f"  Node: {self.nodeEndpoint}\n"
+                  f"  Query: {self.vamdcCall}",
+                  exception=e,
+                  show_traceback=True
+              )
+              return
 
           # Save the transformed output to an HTML temporary file
-
           tempHTMLFileName = self.queryToken+".html" if self.queryToken is not None else self.localUUID+".html"
-          with open(tempHTMLFileName, "wb") as output_file:
-           output_file.write(result)
+          try:
+              with open(tempHTMLFileName, "wb") as output_file:
+                  output_file.write(result)
+          except Exception as e:
+              LOGGER.error(
+                  f"Failed to write HTML output file.\n"
+                  f"  Output file: {tempHTMLFileName}\n"
+                  f"  InchiKey: {self.InchiKey}",
+                  exception=e,
+                  show_traceback=True
+              )
+              return
           
           # reading the html file to produce a data-frame
-          tableHTML = pd.read_html(tempHTMLFileName)
+          try:
+              tableHTML = pd.read_html(tempHTMLFileName)
+          except ValueError as e:
+              # read_html raises ValueError when no tables are found
+              LOGGER.error(
+                  f"No tables found in transformed HTML output.\n"
+                  f"  HTML file: {tempHTMLFileName}\n"
+                  f"  XSAMS file: {self.XSAMSFileName}\n"
+                  f"  InchiKey: {self.InchiKey}\n"
+                  f"  Wavelength: {self.lambdaMin}-{self.lambdaMax} Å\n"
+                  f"  Node: {self.nodeEndpoint}\n"
+                  f"  Query: {self.vamdcCall}",
+                  exception=e,
+                  show_traceback=False
+              )
+              os.remove(tempHTMLFileName)
+              return
+          except Exception as e:
+              LOGGER.error(
+                  f"Failed to parse HTML output with pandas.\n"
+                  f"  HTML file: {tempHTMLFileName}\n"
+                  f"  XSAMS file: {self.XSAMSFileName}\n"
+                  f"  InchiKey: {self.InchiKey}\n"
+                  f"  Wavelength: {self.lambdaMin}-{self.lambdaMax} Å\n"
+                  f"  Node: {self.nodeEndpoint}\n"
+                  f"  Query: {self.vamdcCall}",
+                  exception=e,
+                  show_traceback=True
+              )
+              os.remove(tempHTMLFileName)
+              return
           
-          # removing the temporart HTML file
+          # removing the temporary HTML file
           os.remove(tempHTMLFileName)
+          
+          # Check that we have at least 2 tables (expected format)
+          if len(tableHTML) < 2:
+              LOGGER.error(
+                  f"Unexpected HTML table structure: found {len(tableHTML)} table(s), expected at least 2.\n"
+                  f"  XSAMS file: {self.XSAMSFileName}\n"
+                  f"  InchiKey: {self.InchiKey}\n"
+                  f"  Wavelength: {self.lambdaMin}-{self.lambdaMax} Å\n"
+                  f"  Node: {self.nodeEndpoint}\n"
+                  f"  Query: {self.vamdcCall}"
+              )
+              return
           
           self.lines_df = tableHTML[1]
 
