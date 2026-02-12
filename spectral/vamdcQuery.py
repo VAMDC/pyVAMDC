@@ -565,6 +565,9 @@ class VamdcQuery:
               return
           
           # reading the html file to produce a data-frame
+          # pd.read_html uses lxml by default, which fails with XPathEvalError
+          # on very large HTML files (>~300 MB). In that case we fall back to
+          # html5lib, a streaming parser that handles arbitrarily large files.
           try:
               tableHTML = pd.read_html(tempHTMLFileName)
           except ValueError as e:
@@ -582,20 +585,30 @@ class VamdcQuery:
               )
               os.remove(tempHTMLFileName)
               return
-          except Exception as e:
-              LOGGER.error(
-                  f"Failed to parse HTML output with pandas.\n"
-                  f"  HTML file: {tempHTMLFileName}\n"
-                  f"  XSAMS file: {self.XSAMSFileName}\n"
-                  f"  InchiKey: {self.InchiKey}\n"
-                  f"  Wavelength: {self.lambdaMin}-{self.lambdaMax} Å\n"
-                  f"  Node: {self.nodeEndpoint}\n"
-                  f"  Query: {self.vamdcCall}",
-                  exception=e,
-                  show_traceback=True
+          except Exception as lxml_err:
+              LOGGER.warning(
+                  f"lxml HTML parser failed ({type(lxml_err).__name__}), "
+                  f"retrying with html5lib parser...\n"
+                  f"  HTML file: {tempHTMLFileName}"
               )
-              os.remove(tempHTMLFileName)
-              return
+              try:
+                  tableHTML = pd.read_html(tempHTMLFileName, flavor='html5lib')
+              except Exception as html5lib_err:
+                  LOGGER.error(
+                      f"Failed to parse HTML output with both lxml and html5lib.\n"
+                      f"  HTML file: {tempHTMLFileName}\n"
+                      f"  XSAMS file: {self.XSAMSFileName}\n"
+                      f"  InchiKey: {self.InchiKey}\n"
+                      f"  Wavelength: {self.lambdaMin}-{self.lambdaMax} Å\n"
+                      f"  Node: {self.nodeEndpoint}\n"
+                      f"  Query: {self.vamdcCall}\n"
+                      f"  lxml error: {lxml_err}\n"
+                      f"  html5lib error: {html5lib_err}",
+                      exception=html5lib_err,
+                      show_traceback=True
+                  )
+                  os.remove(tempHTMLFileName)
+                  return
           
           # removing the temporary HTML file
           os.remove(tempHTMLFileName)
