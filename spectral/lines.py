@@ -52,21 +52,29 @@ def _sanitize_node_name(node_endpoint, for_directory=False):
                 # Fallback: use all parts joined with underscores
                 return "_".join(parts).replace("-", "_").replace(":", "_")
         else:
-            # For regular URLs like "http://vamdc.icb.cnrs.fr/tap/" or "https://cdms.astro.uni-koeln.de/cdms/tap/"
-            # Extract a meaningful name from the domain
-            domain = clean_name.split("/")[0]  # e.g., "vamdc.icb.cnrs.fr" or "cdms.astro.uni-koeln.de"
+            # For regular URLs like "http://vamdc.icb.cnrs.fr/tap/" or "https://cdms.astro.uni-koeln.de/jpl/tap/"
+            # Extract meaningful parts from both domain and path
+            url_parts = clean_name.split("/")
+            domain = url_parts[0]  # e.g., "vamdc.icb.cnrs.fr" or "cdms.astro.uni-koeln.de"
+            path_parts = [p for p in url_parts[1:] if p and p.lower() not in ("tap", "tap_12.07")]
             domain_parts = domain.split(".")
             
-            # If domain starts with "vamdc", use the second part (e.g., "icb" from "vamdc.icb.cnrs.fr")
-            # Otherwise use the first part (e.g., "cdms" from "cdms.astro.uni-koeln.de")
+            # Extract meaningful name from domain
             if domain_parts[0] == "vamdc" and len(domain_parts) > 1:
-                # Use the second and possibly third part for more context
-                # e.g., "vamdc.icb.cnrs.fr" -> "icb_cnrs"
-                meaningful_parts = domain_parts[1:3]  # Take up to 2 parts after "vamdc"
-                return "_".join(meaningful_parts).replace("-", "_")
+                # e.g., "vamdc.icb.cnrs.fr" -> ["icb", "cnrs"]
+                name_parts = domain_parts[1:3]
             else:
-                # Use the first part (subdomain) which is usually the database name
-                return domain_parts[0].replace("-", "_")
+                # e.g., "cdms.astro.uni-koeln.de" -> ["cdms"]
+                name_parts = [domain_parts[0]]
+            
+            # Append meaningful path components that aren't already in the name
+            # e.g., "cdms.astro.uni-koeln.de/jpl/tap/" -> ["cdms"] + ["jpl"] -> "cdms_jpl"
+            # e.g., "cdms.astro.uni-koeln.de/cdms/tap/" -> ["cdms"] + [] (deduplicated) -> "cdms"
+            for part in path_parts:
+                if part.lower() not in [p.lower() for p in name_parts]:
+                    name_parts.append(part)
+            
+            return "_".join(name_parts).replace("-", "_")
     else:
         # Create a full sanitized filename with underscores
         return clean_name.replace("/", "_").replace(":", "_").replace("-", "_")
