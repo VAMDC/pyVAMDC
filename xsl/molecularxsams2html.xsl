@@ -16,6 +16,7 @@
   <xsl:variable name="frequencyCount" select="count(/xsams:XSAMSData/xsams:Processes/xsams:Radiative/xsams:RadiativeTransition/xsams:EnergyWavelength/xsams:Frequency)" />
   <xsl:variable name="frequencyRefCount" select="count(/xsams:XSAMSData/xsams:Processes/xsams:Radiative/xsams:RadiativeTransition/xsams:EnergyWavelength/xsams:Frequency/xsams:SourceRef)" />
   <xsl:variable name="transitionProbabilityCount" select="count(/xsams:XSAMSData/xsams:Processes/xsams:Radiative/xsams:RadiativeTransition/xsams:Probability/xsams:TransitionProbabilityA)"/>
+  <xsl:variable name="idealisedIntensityCount" select="count(/xsams:XSAMSData/xsams:Processes/xsams:Radiative/xsams:RadiativeTransition/xsams:Probability/xsams:IdealisedIntensity)"/>  
   <xsl:variable name="oscillatorStrengthCount" select="count(/xsams:XSAMSData/xsams:Processes/xsams:Radiative/xsams:RadiativeTransition/xsams:Probability/xsams:OscillatorStrength)"/>
   <xsl:variable name="weightedOscillatorStrengthCount" select="count(/xsams:XSAMSData/xsams:Processes/xsams:Radiative/xsams:RadiativeTransition/xsams:Probability/xsams:WeightedOscillatorStrength)"/>
   <xsl:variable name="stateEnergyCount" select="count(/xsams:XSAMSData/xsams:Species/xsams:Molecules/xsams:Molecule/xsams:MolecularState/xsams:MolecularStateCharacterisation/xsams:StateEnergy/xsams:Value)"/>
@@ -197,63 +198,68 @@
                       <span class="title">A</span>
                     </th>
                   </xsl:if>
-                  <xsl:if test="$oscillatorStrengthCount &gt; 0">
+                  <xsl:if test="$idealisedIntensityCount &gt; 0">
                     <th id="c16">
+                      <span class="title">Idealised Intensity</span>
+                    </th>
+                  </xsl:if>
+                  <xsl:if test="$oscillatorStrengthCount &gt; 0">
+                    <th id="c17">
                       <span class="title">Oscillator Strength</span>
                     </th>
                   </xsl:if>
                   <xsl:if test="$weightedOscillatorStrengthCount &gt; 0">
-                    <th id="c17">
+                    <th id="c18">
                       <span class="title">Weighted Oscillator Strength</span>
                     </th>
                   </xsl:if>
                   <xsl:if test="$stateEnergyCount &gt; 0">
-                    <th id="c18" data-unit="{$stateEnergyUnit}">
+                    <th id="c19" data-unit="{$stateEnergyUnit}">
                       <span class="title">Lower energy(<xsl:value-of select="$stateEnergyUnit"/>)</span>
                     </th>
                   </xsl:if>
                   <xsl:if test="$totalStatisticalWeightCount &gt; 0">
-                    <th id="c19">
+                    <th id="c20">
                       <span class="title">Lower total statistical weight</span>
                     </th>
                   </xsl:if>
                   <xsl:if test="$nuclearStatisticalWeightCount &gt; 0">
-                    <th id="c20">
+                    <th id="c21">
                       <span class="title">Lower nuclear statistical weight</span>
                     </th>
                   </xsl:if>
                   <xsl:if test="$parityCount &gt; 0">
-                    <th id="c21">
+                    <th id="c22">
                       <span class="title">Lower parity</span>
                     </th>
                   </xsl:if>
                   <xsl:if test="$caseCount &gt; 0">
-                    <th id="c22">
+                    <th id="c23">
                       <span class="title">Lower QNs</span>
                     </th>
                   </xsl:if>
                   <xsl:if test="$stateEnergyCount &gt; 0">
-                    <th id="c23" data-unit="{$stateEnergyUnit}">
+                    <th id="c24" data-unit="{$stateEnergyUnit}">
                       <span class="title">Upper energy(<xsl:value-of select="$stateEnergyUnit"/>)</span>
                     </th>
                   </xsl:if>
                   <xsl:if test="$totalStatisticalWeightCount &gt; 0">
-                    <th id="c24">
+                    <th id="c25">
                       <span class="title">Upper total statistical weight</span>
                     </th>
                   </xsl:if>
                   <xsl:if test="$nuclearStatisticalWeightCount &gt; 0">
-                    <th id="c25">
+                    <th id="c26">
                       <span class="title">Upper nuclear statistical weight</span>
                     </th>
                   </xsl:if>
                   <xsl:if test="$parityCount &gt; 0">
-                    <th id="c26">
+                    <th id="c27">
                       <span class="title">Upper parity</span>
                     </th>
                   </xsl:if>
                   <xsl:if test="$caseCount &gt; 0">
-                    <th id="c27">
+                    <th id="c28">
                       <span class="title">Upper QNs</span>
                     </th>
                   </xsl:if>
@@ -442,65 +448,70 @@
           <xsl:value-of select="$radTran/xsams:Probability/xsams:TransitionProbabilityA/xsams:Value"/>
         </td>
       </xsl:if>
-      <xsl:if test="$oscillatorStrengthCount &gt; 0">
+      <xsl:if test="$idealisedIntensityCount &gt; 0">
         <td data-columnid="c16">
+          <xsl:value-of select="$radTran/xsams:Probability/xsams:IdealisedIntensity/xsams:Value"/>
+        </td>
+      </xsl:if>
+      <xsl:if test="$oscillatorStrengthCount &gt; 0">
+        <td data-columnid="c17">
           <xsl:value-of select="$radTran/xsams:Probability/xsams:OscillatorStrength/xsams:Value"/>          
         </td>
       </xsl:if>
       <xsl:if test="$weightedOscillatorStrengthCount &gt; 0">
-        <td data-columnid="c17">
+        <td data-columnid="c18">
           <xsl:value-of select="$radTran/xsams:Probability/xsams:WeightedOscillatorStrength/xsams:Value"/>
         </td>
       </xsl:if>
       <xsl:if test="$stateEnergyCount &gt; 0">
-        <td data-columnid="c18">
+        <td data-columnid="c19">
           <xsl:value-of select="$lowerState/xsams:MolecularStateCharacterisation/xsams:StateEnergy/xsams:Value"/>
         </td>
       </xsl:if>
       <xsl:if test="$totalStatisticalWeightCount &gt; 0">
-        <td data-columnid="c19">
+        <td data-columnid="c20">
           <xsl:value-of select="$lowerState/xsams:MolecularStateCharacterisation/xsams:TotalStatisticalWeight"/>
         </td>
       </xsl:if>
       <xsl:if test="$nuclearStatisticalWeightCount &gt; 0">
-        <td data-columnid="c20">
+        <td data-columnid="c21">
           <xsl:value-of select="$lowerState/xsams:MolecularStateCharacterisation/xsams:NuclearStatisticalWeight"/>
         </td>
       </xsl:if>
       <xsl:if test="$parityCount &gt; 0">
-        <td data-columnid="c21">
+        <td data-columnid="c22">
           <xsl:value-of select="$lowerState/xsams:Parity"/>
         </td>
       </xsl:if>
       <xsl:if test="$caseCount &gt; 0">
-        <td data-columnid="c22">
+        <td data-columnid="c23">
           <xsl:call-template name="case">
             <xsl:with-param name="case" select="$lowerState/xsams:Case"/>
           </xsl:call-template>
         </td>
       </xsl:if>
       <xsl:if test="$stateEnergyCount &gt; 0">
-        <td data-columnid="c23">
+        <td data-columnid="c24">
           <xsl:value-of select="$upperState/xsams:MolecularStateCharacterisation/xsams:StateEnergy/xsams:Value"/>
         </td>
       </xsl:if>
       <xsl:if test="$totalStatisticalWeightCount &gt; 0">
-        <td data-columnid="c24">
+        <td data-columnid="c25">
           <xsl:value-of select="$upperState/xsams:MolecularStateCharacterisation/xsams:TotalStatisticalWeight"/>
         </td>
       </xsl:if>
       <xsl:if test="$nuclearStatisticalWeightCount &gt; 0">
-        <td data-columnid="c25">
+        <td data-columnid="c26">
           <xsl:value-of select="$upperState/xsams:MolecularStateCharacterisation/xsams:NuclearStatisticalWeight"/>
         </td>
       </xsl:if>
       <xsl:if test="$parityCount &gt; 0">
-        <td data-columnid="c26">
+        <td data-columnid="c27">
           <xsl:value-of select="$upperState/xsams:Parity"/>
         </td>
       </xsl:if>
       <xsl:if test="$caseCount &gt; 0">
-        <td data-columnid="c27">
+        <td data-columnid="c28">
           <xsl:call-template name="case">
             <xsl:with-param name="case" select="$upperState/xsams:Case"/>
           </xsl:call-template>
@@ -2073,4 +2084,3 @@
     </xsl:choose>
   </xsl:template>
 </xsl:stylesheet>
-
