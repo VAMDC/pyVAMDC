@@ -462,6 +462,14 @@ def species_cmd(ctx: click.Context, format: str, output: Optional[str], refresh:
         vamdc get species --slap2 --output /path/to/votables/
     """
     try:
+        # Validate option combinations
+        if format == 'excel' and not output and not slap2:
+            click.echo("Error: Excel format requires --output file path (cannot write binary to stdout).", err=True)
+            sys.exit(1)
+
+        if slap2 and format != 'table':
+            click.echo(f"Warning: --format={format} is ignored when --slap2 is specified.", err=True)
+
         # Load species data (uses cache if valid)
         df_species, _ = load_species_data(force_refresh=refresh)
 
