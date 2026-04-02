@@ -75,8 +75,8 @@ class VamdcQuery:
 
     # Constants for HTTP headers
     USER_AGENT_QUERY_STORE = 'VAMDC Query store'
-    #DEFAULT_USER_AGENT = 'VAMDC Query store'
-    DEFAULT_USER_AGENT = 'pyVAMDC v0.1'
+    DEFAULT_USER_AGENT = 'VAMDC Query store'
+    #DEFAULT_USER_AGENT = 'pyVAMDC v0.1'
 
     def __init__(self, nodeEndpoint, lambdaMin, lambdaMax, InchiKey, speciesType, totalListOfQueries, acceptTruncation = False):
       """ This is the constructor of the VAMDCQuery class. 
@@ -248,12 +248,19 @@ class VamdcQuery:
         
         self.queryToken = queryResult.headers.get('VAMDC-REQUEST-TOKEN')
         
+        # Validate queryToken to prevent path traversal
+        if self.queryToken and ('/' in self.queryToken or '..' in self.queryToken):
+            LOGGER.warning(f"Rejected suspicious queryToken containing path characters: {self.queryToken}")
+            self.queryToken = None
+        
         # Store XSAMS files in QueryResults directory alongside parquet files
         query_results_dir = Path.cwd() / "QueryResults"
         query_results_dir.mkdir(exist_ok=True, parents=True)
         
         if self.queryToken:
-           self.XSAMSFileName = str(query_results_dir / f"{self.queryToken}.xsams")
+           # Replace ':' with '_' for Windows filesystem compatibility
+           safe_token = self.queryToken.replace(':', '_')
+           self.XSAMSFileName = str(query_results_dir / f"{safe_token}.xsams")
         else:
            self.XSAMSFileName = str(query_results_dir / f"{self.localUUID}.xsams")
 
@@ -550,7 +557,8 @@ class VamdcQuery:
               return
 
           # Save the transformed output to an HTML temporary file
-          tempHTMLFileName = self.queryToken+".html" if self.queryToken is not None else self.localUUID+".html"
+          safe_token = self.queryToken.replace(':', '_') if self.queryToken is not None else self.localUUID
+          tempHTMLFileName = safe_token+".html"
           try:
               with open(tempHTMLFileName, "wb") as output_file:
                   output_file.write(result)
@@ -638,7 +646,8 @@ class VamdcQuery:
           query_results_dir.mkdir(exist_ok=True)
           
           # Use queryToken if available, otherwise use localUUID (same logic as XSAMS files)
-          parquet_filename = self.queryToken if self.queryToken else self.localUUID
+          # Replace ':' with '_' for Windows filesystem compatibility
+          parquet_filename = self.queryToken.replace(':', '_') if self.queryToken else self.localUUID
           self.parquet_path = query_results_dir / f"{parquet_filename}.parquet"
           
           self.lines_df.to_parquet(self.parquet_path, index=False)

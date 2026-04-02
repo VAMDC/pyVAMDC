@@ -409,7 +409,7 @@ class Radex:
             save_dir = tempfile.gettempdir()
         os.makedirs(save_dir, exist_ok=True)
 
-        save_path = os.path.join(save_dir, filename)
+        save_path = os.path.join(save_dir, os.path.basename(filename))
         with open(save_path, "wb") as f:
             f.write(blob_data)
 
