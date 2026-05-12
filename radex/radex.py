@@ -1,17 +1,16 @@
 from pyVAMDC.radex.logger import logger
 
 import pandas as pd
-import tempfile
-import os
 import requests
-import base64
-from urllib.parse import quote
+import zipfile
+import time
+from pathlib import Path
+from urllib.parse import urlparse, urlencode, quote
 from typing import Optional, Dict, List, Any
 
 try:
     from pyVAMDC.radex.config import API_BASE_URL
 except ImportError:
-    # Default fallback if config file is not found
     API_BASE_URL = "http://127.0.0.1:8000"
 
 
@@ -29,41 +28,12 @@ class Radex:
 
         Parameters:
             base_url (str, optional): Base URL of the RADEX API server.
-                                     If None, uses the value from radex_config.py
+                                     If None, uses API_BASE_URL from pyVAMDC.radex.config
         """
         if base_url is None:
             base_url = API_BASE_URL
         self.base_url = base_url.rstrip('/')
 
-    def _decode_base64_blobs(self, df: pd.DataFrame, blob_columns: list = None) -> pd.DataFrame:
-        """
-        Decode base64-encoded BLOB columns back to bytes.
-
-        Parameters:
-            df (pd.DataFrame): DataFrame with base64-encoded BLOBs
-            blob_columns (list, optional): List of column names containing encoded BLOBs.
-                                          If None, auto-detects 'radex' column.
-
-        Returns:
-            pd.DataFrame: DataFrame with BLOBs decoded to bytes
-        """
-        if df.empty:
-            return df
-
-        # Auto-detect blob columns if not specified
-        if blob_columns is None:
-            blob_columns = ['radex'] if 'radex' in df.columns else []
-
-        df_copy = df.copy()
-        for col in blob_columns:
-            if col in df_copy.columns:
-                # Decode base64 string to bytes
-                df_copy[col] = df_copy[col].apply(
-                    lambda x: base64.b64decode(x) if isinstance(x, str) else x
-                )
-
-        return df_copy
-    
     def _make_request(self, endpoint: str, params: Dict[str, Any]) -> pd.DataFrame:
         """
         Make an HTTP GET request to the API and return a DataFrame.
@@ -75,399 +45,258 @@ class Radex:
         Returns:
             pd.DataFrame: Response data as DataFrame, or empty DataFrame on error
         """
-        # Filter out None values and encode special characters
         filtered_params = {
-            key: quote(str(value), safe='') if isinstance(value, str) else value
+            key: value
             for key, value in params.items()
             if value is not None
         }
 
-        url = f"{self.base_url}{endpoint}"
+        # Encode params but keep ':' and '/' unencoded for ivoIdentifier values
+        query_string = urlencode(filtered_params, quote_via=lambda v, *_: quote(v, safe=":/"))
+        url = f"{self.base_url}{endpoint}?{query_string}" if query_string else f"{self.base_url}{endpoint}"
 
-        try:
-            response = requests.get(url, params=filtered_params, timeout=30)
-            response.raise_for_status()
-            data = response.json()
-
-            if isinstance(data, list):
-                df = pd.DataFrame(data)
-                # Decode base64-encoded BLOBs back to bytes
-                df = self._decode_base64_blobs(df)
-                return df
-            else:
-                logger.warning(f"Unexpected response format: {type(data)}")
+        for attempt in range(3):
+            try:
+                response = requests.get(url, timeout=30)
+                if response.status_code in (403, 429):
+                    wait = 2 ** attempt
+                    logger.warning(f"Rate limited ({response.status_code}), retrying in {wait}s")
+                    time.sleep(wait)
+                    continue
+                response.raise_for_status()
+                data = response.json()
+                if isinstance(data, list):
+                    return pd.DataFrame(data)
+                else:
+                    logger.warning(f"Unexpected response format: {type(data)}")
+                    return pd.DataFrame()
+            except requests.exceptions.RequestException as e:
+                logger.error(f"API request failed for {endpoint}: {e}")
                 return pd.DataFrame()
 
-        except requests.exceptions.RequestException as e:
-            logger.error(f"API request failed for {endpoint}: {e}")
-            return pd.DataFrame()
+        logger.error(f"API request failed after 3 attempts for {endpoint}")
+        return pd.DataFrame()
 
     def _cross_species(self, df_target: pd.DataFrame, df_collider: pd.DataFrame) -> pd.DataFrame:
         """
         Create a cartesian product between target and collider species DataFrames.
-
-        Removes duplicates based on InChIKey before creating the cross product.
 
         Parameters:
             df_target (pd.DataFrame): DataFrame of target species
             df_collider (pd.DataFrame): DataFrame of collider species
 
         Returns:
-            pd.DataFrame: Cross product with suffixed columns (_Target, _Collider)
+            pd.DataFrame: Cross product with suffixed columns (Target, Collider)
         """
-        # Remove duplicates
+        if df_target is None or df_target.empty:
+            if df_collider is None or df_collider.empty:
+                return pd.DataFrame()
+            return df_collider.drop_duplicates(subset="InChIKey").reset_index(drop=True).rename(columns=lambda c: c + "Collider")
         df_target = df_target.drop_duplicates(subset="InChIKey").reset_index(drop=True)
+        if df_collider is None or df_collider.empty:
+            return df_target.rename(columns=lambda c: c + "Target")
         df_collider = df_collider.drop_duplicates(subset="InChIKey").reset_index(drop=True)
-
-        # Cartesian product with suffixes
         return df_target.merge(df_collider, how="cross", suffixes=("Target", "Collider"))
 
     def _aggregate_results(self, results_list: List[Dict]) -> pd.DataFrame:
         """
-        Aggregate and deduplicate a list of result dictionaries.
+        Aggregate a list of result dictionaries into a DataFrame.
 
         Parameters:
             results_list (list): List of dictionaries containing RADEX entries
 
         Returns:
-            pd.DataFrame: Deduplicated DataFrame, or empty DataFrame if no results
+            pd.DataFrame: DataFrame, or empty DataFrame if no results
         """
         if not results_list:
             logger.info("No RADEX entries found.")
             return pd.DataFrame()
 
-        df = pd.DataFrame(results_list)
-        return df.drop_duplicates().reset_index(drop=True)
+        return pd.DataFrame(results_list).reset_index(drop=True)
 
-    def getRadexWithRole(
+    def getRadex(
         self,
-        df_species: pd.DataFrame,
-        role: str = "any",
-        symmetry_target: Optional[str] = None,
-        symmetry_collider: Optional[str] = None,
-        db_collision: Optional[str] = None,
-        db_spectro: Optional[str] = None,
-        doi: Optional[str] = None,
-        quantum_numbers: Optional[str] = None,
-        id_case: Optional[str] = None,
-        process: Optional[str] = None,
-        limit: Optional[int] = None
-    ) -> pd.DataFrame:
-        """
-        Get RADEX entries for molecular species with flexible role assignment.
-
-        Queries the API for each species in the DataFrame, searching for matches
-        as target, collider, or both depending on the role parameter.
-
-        Parameters:
-            df_species (pd.DataFrame): DataFrame with species info (stoichiometricFormula, InChIKey, nameEspece)
-            role (str): Species role - "target", "collider", or "any" (default: "any")
-            symmetry_target (str, optional): Target symmetry filter
-            symmetry_collider (str, optional): Collider symmetry filter
-            db_collision (str, optional): Collisional database filter
-            db_spectro (str, optional): Spectroscopic database filter
-            doi (str, optional): DOI filter
-            quantum_numbers (str, optional): Quantum number filter
-            id_case (str, optional): Case ID filter
-            process (str, optional): Process type filter
-            limit (int, optional): Maximum results per species
-
-        Returns:
-            pd.DataFrame: Deduplicated DataFrame of matching RADEX entries
-        """
-        if df_species is None or df_species.empty:
-            logger.info("The species DataFrame is empty")
-            return pd.DataFrame()
-
-        all_results = []
-
-        for _, row in df_species.iterrows():
-            params = {
-                "role": role,
-                "specie": row.get("nameEspece"),
-                "stoichiometric": row.get("stoichiometricFormula"),
-                "inchikey": row.get("InChIKey"),
-                "symmetryTarget": symmetry_target,
-                "symmetryCollider": symmetry_collider,
-                "dbCollision": db_collision,
-                "dbSpectro": db_spectro,
-                "doi": doi,
-                "quantumNumbers": quantum_numbers,
-                "idCase": id_case,
-                "process": process,
-                "limit": limit
-            }
-
-            entries = self._make_request("/entries/by_role", params)
-
-            if not entries.empty:
-                all_results.extend(entries.to_dict(orient="records"))
-
-        return self._aggregate_results(all_results)
-
-    def getRadexCrossProduct(
-        self,
-        df_species_target: pd.DataFrame,
-        df_species_collider: pd.DataFrame,
-        symmetry_target: Optional[str] = None,
-        symmetry_collider: Optional[str] = None,
-        db_collision: Optional[str] = None,
-        db_spectro: Optional[str] = None,
-        doi: Optional[str] = None,
-        quantum_numbers: Optional[str] = None,
-        id_case: Optional[str] = None,
-        process: Optional[str] = None,
+        target_df: pd.DataFrame,
+        collider_df: pd.DataFrame,
+        db_df_collision: Optional[pd.DataFrame] = None,
+        db_df_spectro: Optional[pd.DataFrame] = None,
+        doi_df: Optional[pd.DataFrame] = None,
         limit: Optional[int] = None
     ) -> pd.DataFrame:
         """
         Get RADEX entries for all target-collider species combinations (cartesian product).
 
-        Creates all possible pairs between target and collider species (N × M combinations),
-        then queries the API for each pair to retrieve collision data.
-
-        Example:
-            If df_species_target contains [H2O, CO] and df_species_collider contains [He, H2],
-            this will query for: H2O-He, H2O-H2, CO-He, CO-H2 (4 queries total).
-
         Parameters:
-            df_species_target (pd.DataFrame): Target species DataFrame
-            df_species_collider (pd.DataFrame): Collider species DataFrame
-            symmetry_target (str, optional): Target symmetry filter
-            symmetry_collider (str, optional): Collider symmetry filter
-            db_collision (str, optional): Collisional database filter
-            db_spectro (str, optional): Spectroscopic database filter
-            doi (str, optional): DOI filter
-            quantum_numbers (str, optional): Quantum number filter
-            id_case (str, optional): Case ID filter
-            process (str, optional): Process type filter
-            limit (int, optional): Maximum results per species pair
+            target_df (pd.DataFrame): Target species DataFrame
+            collider_df (pd.DataFrame): Collider species DataFrame
+            db_df_collision (pd.DataFrame, optional): DataFrame with ivoIdentifier column for collision database filter (→ dbCollision in API).
+            db_df_spectro (pd.DataFrame, optional): DataFrame with ivoIdentifier column for spectroscopic database filter (→ dbSpectro in API).
+            doi_df (pd.DataFrame, optional): DataFrame with a 'doi' column to filter by DOI.
+            limit (int, optional): Maximum results per individual API call
 
         Returns:
-            pd.DataFrame: Deduplicated DataFrame of matching RADEX entries for all pairs
+            pd.DataFrame: DataFrame with the following columns:
+                - inchikeyTarget, inchikeyCollider: InChIKey identifiers
+                - symmetryTarget, symmetryCollider: symmetry classifications
+                - doi: DOI reference (if present)
+                - zipFile: local path to the zip archive containing the RADEX file
+                  ({base}.radex) and the original collision/spectro files
+                  with their server-side filenames
         """
-        if (df_species_collider is None or df_species_collider.empty or
-            df_species_target is None or df_species_target.empty):
-            logger.info("Target or collider species DataFrame is empty")
-            return pd.DataFrame()
+        if (target_df is None or target_df.empty) and (collider_df is None or collider_df.empty):
+            logger.warning("No species provided, returning all entries")
+        elif target_df is None or target_df.empty:
+            logger.warning("Target species DataFrame is empty, querying on collider only")
+        elif collider_df is None or collider_df.empty:
+            logger.warning("Collider species DataFrame is empty, querying on target only")
 
-        df_cross_species = self._cross_species(df_species_target, df_species_collider)
+        def _node_names(db_df):
+            if db_df is None or db_df.empty:
+                return [None]
+            col = "ivoIdentifier" if "ivoIdentifier" in db_df.columns else "shortName"
+            return db_df[col].dropna().unique().tolist() or [None]
+
+        collision_nodes = _node_names(db_df_collision)
+        spectro_nodes = _node_names(db_df_spectro)
+
+        doi = None
+        if doi_df is not None and not doi_df.empty and "doi" in doi_df.columns:
+            dois = doi_df["doi"].dropna().unique().tolist()
+            doi = dois[0] if len(dois) == 1 else None
+
+        df_cross_species = self._cross_species(target_df, collider_df)
+        rows = [{}] if df_cross_species.empty else [row.to_dict() for _, row in df_cross_species.iterrows()]
 
         all_results = []
+        for row in rows:
+            for db_collision in collision_nodes:
+                for db_spectro in spectro_nodes:
+                    params = {
+                        "inchikeyTarget": row.get("InChIKeyTarget"),
+                        "inchikeyCollider": row.get("InChIKeyCollider"),
+                        "dbCollision": db_collision,
+                        "dbSpectro": db_spectro,
+                        "doi": doi,
+                        "limit": limit,
+                    }
+                    entries = self._make_request("/entries/filter", params)
+                    if not entries.empty:
+                        all_results.extend(entries.to_dict(orient="records"))
 
-        for _, row in df_cross_species.iterrows():
-            params = {
-                "stoichiometricTarget": row.get("stoichiometricFormulaTarget"),
-                "stoichiometricCollider": row.get("stoichiometricFormulaCollider"),
-                "inchikeyTarget": row.get("InChIKeyTarget"),
-                "inchikeyCollider": row.get("InChIKeyCollider"),
-                "symmetryTarget": symmetry_target,
-                "symmetryCollider": symmetry_collider,
-                "dbCollision": db_collision,
-                "dbSpectro": db_spectro,
-                "doi": doi,
-                "quantumNumbers": quantum_numbers,
-                "idCase": id_case,
-                "process": process,
-                "limit": limit
-            }
+        df_raw = self._aggregate_results(all_results)
+        if df_raw.empty:
+            return pd.DataFrame()
 
-            entries = self._make_request("/entries/filter", params)
+        keep = ["inchikeyTarget", "inchikeyCollider", "symmetryTarget", "symmetryCollider",
+                "fileName", "radexFileUrl", "collisionFileUrl", "spectroFileUrl", "doi"]
+        return self._downloadRadexFiles(df_raw[[c for c in keep if c in df_raw.columns]].copy())
 
-            if not entries.empty:
-                all_results.extend(entries.to_dict(orient="records"))
-
-        return self._aggregate_results(all_results)
-
-    def getRadexDirect(
-        self,
-        specie_target: Optional[str] = None,
-        specie_collider: Optional[str] = None,
-        stoichiometric_target: Optional[str] = None,
-        stoichiometric_collider: Optional[str] = None,
-        symmetry_target: Optional[str] = None,
-        symmetry_collider: Optional[str] = None,
-        inchikey_target: Optional[str] = None,
-        inchikey_collider: Optional[str] = None,
-        quantum_numbers: Optional[str] = None,
-        doi: Optional[str] = None,
-        db_collision: Optional[str] = None,
-        db_spectro: Optional[str] = None,
-        id_case: Optional[str] = None,
-        process: Optional[str] = None,
-        limit: Optional[int] = None
-    ) -> pd.DataFrame:
-        """
-        Get RADEX entries with direct parameter filtering (single API query).
-
-        Use this method when you know exact values to search for. Makes only one API call
-        with the provided parameters.
-
-        Parameters:
-            specie_target (str, optional): Target species name
-            specie_collider (str, optional): Collider species name
-            stoichiometric_target (str, optional): Target stoichiometric formula
-            stoichiometric_collider (str, optional): Collider stoichiometric formula
-            symmetry_target (str, optional): Target symmetry
-            symmetry_collider (str, optional): Collider symmetry
-            inchikey_target (str, optional): Target InChIKey
-            inchikey_collider (str, optional): Collider InChIKey
-            quantum_numbers (str, optional): Quantum numbers
-            doi (str, optional): DOI reference
-            db_collision (str, optional): Collisional database
-            db_spectro (str, optional): Spectroscopic database
-            id_case (str, optional): Case ID
-            process (str, optional): Process type
-            limit (int, optional): Maximum number of results
-
-        Returns:
-            pd.DataFrame: Matching RADEX entries
-        """
-        params = {
-            "specieTarget": specie_target,
-            "specieCollider": specie_collider,
-            "stoichiometricTarget": stoichiometric_target,
-            "stoichiometricCollider": stoichiometric_collider,
-            "symmetryTarget": symmetry_target,
-            "symmetryCollider": symmetry_collider,
-            "inchikeyTarget": inchikey_target,
-            "inchikeyCollider": inchikey_collider,
-            "quantumNumbers": quantum_numbers,
-            "doi": doi,
-            "dbCollision": db_collision,
-            "dbSpectro": db_spectro,
-            "idCase": id_case,
-            "process": process,
-            "limit": limit
-        }
-
-        return self._make_request("/entries/filter", params)
-
-    def getRadexAll(self, limit: int = 100) -> pd.DataFrame:
-        """
-        Get all RADEX entries from the database.
-
-        Parameters:
-            limit (int): Maximum number of results (default: 100)
-
-        Returns:
-            pd.DataFrame: All RADEX entries up to the limit
-        """
-        return self._make_request("/entries", {"limit": limit})
-
-    def exportBlobConsole(
+    def _downloadRadexFiles(
         self,
         df_radex: pd.DataFrame,
-        filename_col: str = "fileName",
-        blob_col: str = "radex",
-        save_dir: Optional[str] = None
-    ) -> None:
+        output_dir: str = "./RADEX"
+    ) -> pd.DataFrame:
         """
-        Interactive console menu to select and export a RADEX blob file.
+        Download files from URLs in df_radex, group them into a zip per entry,
+        and return a DataFrame with a zipFile column.
+
+        Each zip contains:
+            - {base}.radex   (from radexFileUrl, name derived from fileName)
+            - <server name>  (from collisionFileUrl, original sanitized filename)
+            - <server name>  (from spectroFileUrl, original sanitized filename)
 
         Parameters:
-            df_radex (pd.DataFrame): DataFrame containing RADEX results
-            filename_col (str): Column name containing the filename (default: "fileName")
-            blob_col (str): Column name containing the blob data (default: "radex")
-            save_dir (str, optional): Directory to save file. Uses temp dir if None
-        """
-        if df_radex.empty:
-            print("No results to export")
-            return
-
-        print("Choose an index:")
-        for idx in df_radex.index:
-            filename = df_radex.loc[idx, filename_col]
-            print(f"{idx}: {filename}")
-
-        choice = input("Enter the line number to save: ")
-
-        try:
-            choice = int(choice)
-            if choice < 0 or choice >= len(df_radex):
-                print("Invalid choice.")
-                return
-        except ValueError:
-            print("Please enter a valid number.")
-            return
-
-        row = df_radex.iloc[choice]
-        filename = row[filename_col]
-        blob_data = row.get(blob_col)
-
-        # Check if blob data exists
-        if blob_data is None:
-            print(f"Error: No blob data found in column '{blob_col}'")
-            print(f"Available columns: {list(df_radex.columns)}")
-            return
-
-        if not isinstance(blob_data, bytes):
-            print(f"Error: Blob data is not in bytes format (type: {type(blob_data)})")
-            return
-
-        # Determine save directory
-        if save_dir is None:
-            save_dir = tempfile.gettempdir()
-        os.makedirs(save_dir, exist_ok=True)
-
-        save_path = os.path.join(save_dir, os.path.basename(filename))
-        with open(save_path, "wb") as f:
-            f.write(blob_data)
-
-        print(f"\nFile saved at: {save_path}")
-
-    def displayFileUrls(
-        self,
-        df_radex: pd.DataFrame
-    ) -> List[Dict[str, Any]]:
-        """
-        Display and return file URLs from all RADEX results.
-
-        Parameters:
-            df_radex (pd.DataFrame): DataFrame containing RADEX results
+            df_radex (pd.DataFrame): DataFrame with file URL columns and fileName
+            output_dir (str): Directory where zip files will be saved (default: "./RADEX")
 
         Returns:
-            list: List of dictionaries, each containing entry info and available URLs
+            pd.DataFrame: Same structure with URL columns and fileName replaced by zipFile path
         """
-        if df_radex.empty:
-            logger.error("The DataFrame is empty")
-            return []
+        output_path = Path(output_dir)
+        output_path.mkdir(exist_ok=True, parents=True)
 
-        all_urls = []
+        url_to_entry = {
+            "radexFileUrl":     ("fixed", ".radex"),
+            "collisionFileUrl": ("url",   ".xsams"),
+            "spectroFileUrl":   ("url",   ".xsams"),
+        }
 
-        for idx, row in df_radex.iterrows():
-            urls = {
-                'radex': row.get('radexFileUrl'),
-                'collision': row.get('collisionFileUrl'),
-                'spectro': row.get('spectroFileUrl')
-            }
+        records = []
+        for _, row in df_radex.iterrows():
+            record = row.to_dict()
+            filename = row.get("fileName")
 
-            print(f"\n{'=' * 60}")
-            print(f"Entry {idx}:")
-            print(f"  ID: {row.get('idRadex', 'N/A')}")
-            print(f"  File: {row.get('fileName', 'N/A')}")
-            print(f"  Target: {row.get('specieTarget', 'N/A')} (symmetry: {row.get('symmetryTarget', 'N/A')})")
-            print(f"  Collider: {row.get('specieCollider', 'N/A')} (symmetry: {row.get('symmetryCollider', 'N/A')})")
-            print(f"\n  Available URLs:")
+            # Sanitize base name and strip leading M_
+            raw = Path(Path(filename).name).stem if filename else "unknown"
+            raw = "".join(c for c in raw if c.isalnum() or c in "_-.")
+            base = raw[2:] if raw.startswith("M_") else raw
 
-            available_urls = {}
-            for file_type, url in urls.items():
-                if url is not None and not pd.isna(url):
-                    print(f"    {file_type.capitalize()}: {url}")
-                    available_urls[file_type] = url
+            zip_path = (output_path / f"{base}.zip").resolve()
+            if not str(zip_path).startswith(str(output_path.resolve())):
+                logger.error(f"Rejected path traversal attempt: {zip_path}")
+                record["zipFile"] = None
+                for url_col in url_to_entry:
+                    record.pop(url_col, None)
+                record.pop("fileName", None)
+                records.append(record)
+                continue
+
+            downloaded = {}
+            for url_col, (naming, suffix) in url_to_entry.items():
+                url = row.get(url_col)
+                if url is None or (isinstance(url, float) and pd.isna(url)):
+                    continue
+
+                # SSRF: only allow http/https downloads
+                parsed = urlparse(str(url))
+                if parsed.scheme not in ("http", "https"):
+                    logger.error(f"Rejected URL with disallowed scheme: {parsed.scheme}")
+                    continue
+
+                # use original filename from URL for spectro, constructed name for others
+                if naming == "url":
+                    raw_name = Path(parsed.path).name
+                    stem = "".join(c for c in Path(raw_name).stem if c.isalnum() or c in "_-.")
+                    ext = "".join(c for c in Path(raw_name).suffix if c.isalnum() or c == ".")
+                    entry_name = f"{stem}{ext}" or f"{base}{suffix}"
                 else:
-                    print(f"    {file_type.capitalize()}: Not available")
+                    entry_name = f"{base}{suffix}"
 
-            entry_info = {
-                'index': idx,
-                'idRadex': row.get('idRadex'),
-                'fileName': row.get('fileName'),
-                'specieTarget': row.get('specieTarget'),
-                'specieCollider': row.get('specieCollider'),
-                'urls': available_urls
-            }
-            all_urls.append(entry_info)
+                MAX_BYTES = 50 * 1024 * 1024  # 50 MB
+                try:
+                    with requests.get(url, timeout=30, stream=True) as response:
+                        response.raise_for_status()
+                        content_length = response.headers.get("Content-Length")
+                        if content_length and int(content_length) > MAX_BYTES:
+                            logger.error(f"Rejected oversized download ({content_length} bytes) for {url_col}")
+                            continue
+                        chunks = []
+                        total = 0
+                        for chunk in response.iter_content(chunk_size=65536):
+                            total += len(chunk)
+                            if total > MAX_BYTES:
+                                logger.error(f"Rejected oversized download for {url_col}")
+                                chunks = None
+                                break
+                            chunks.append(chunk)
+                        if chunks is not None:
+                            downloaded[entry_name] = b"".join(chunks)
+                except requests.exceptions.RequestException as e:
+                    logger.error(f"Failed to download {url_col}: {e}")
 
-        print(f"\n{'=' * 60}")
-        print(f"\nTotal entries: {len(all_urls)}")
+            if downloaded:
+                with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+                    for name, content in downloaded.items():
+                        zf.writestr(name, content)
+                record["zipFile"] = str(zip_path)
+                print(f"Saved: {zip_path}")
+            else:
+                record["zipFile"] = None
 
-        return all_urls
+            for url_col in url_to_entry:
+                record.pop(url_col, None)
+            record.pop("fileName", None)
+
+            records.append(record)
+
+        return pd.DataFrame(records).reset_index(drop=True)

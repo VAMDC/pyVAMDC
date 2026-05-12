@@ -1,36 +1,42 @@
+import pandas as pd
 from pyVAMDC.radex.radex import Radex
 from pyVAMDC.spectral.species import getSpeciesWithRestrictions
 
 def main():
-    # Search species with stoichiometric formula
-    df_species_target, _ = getSpeciesWithRestrictions(stoichiometric_formula="AlCN")
-    df_species_collider, _ = getSpeciesWithRestrictions(stoichiometric_formula="H2")
+    df_target, _ = getSpeciesWithRestrictions(stoichiometric_formula="C2H")
+    """df_target1, _ = getSpeciesWithRestrictions(stoichiometric_formula="CMgN")
+    df_target = pd.concat([df_target, df_target1], ignore_index=True)"""
 
-    print("Target species:")
-    print(df_species_target[['InChIKey', 'stoichiometricFormula', 'name']])
-    print("\nCollider species:")
-    print(df_species_collider[['InChIKey', 'stoichiometricFormula', 'name']])
+    df_collider, _ = getSpeciesWithRestrictions(stoichiometric_formula="H2")
+    df_collider1, _ = getSpeciesWithRestrictions(stoichiometric_formula="He")
+    df_collider = pd.concat([df_collider, df_collider1], ignore_index=True)
 
-    # Initialize Radex API client (default: http://127.0.0.1:8000)
+    print(f"\n--- Target species ({len(df_target)} rows) ---")
+    print(df_target[["InChIKey", "stoichiometricFormula", "name", "ivoIdentifier"]])
+    print(f"\n--- Collider species ({len(df_collider)} rows) ---")
+    print(df_collider[["InChIKey", "stoichiometricFormula", "name"]])
+
+    db_df_collision = pd.DataFrame({"ivoIdentifier": ["ivo://vamdc/basecol2015/vamdc-tap"]})
+    db_df_spectro = pd.DataFrame({"ivoIdentifier": ["ivo://vamdc/cdms/vamdc-tap_12.07"]})
+
     radex = Radex()
 
-    # Search RADEX data via API for target-collider combinations
-    df_radex = radex.getRadexCrossProduct(df_species_target, df_species_collider)
+    df_radex = radex.getRadex(
+        target_df=df_target,
+        collider_df=df_collider,
+        db_df_collision=db_df_collision,
+        db_df_spectro=db_df_spectro,
+    )
 
     if not df_radex.empty:
-        print("\nRADEX Results:")
-        print(df_radex.columns)
-        print("---------------\n")
-        print(df_radex[['idRadex', 'fileName', 'specieTarget', 'specieCollider',
-                        'symmetryTarget', 'symmetryCollider']])
-
-        # Display file URLs for the first entry
-        if len(df_radex) > 0:
-            urls = radex.displayFileUrls(df_radex)
-            print(f"\nReturned URLs: {urls}")
-
+        print("\n--- RADEX Results ---")
+        pd.set_option("display.max_columns", None)
+        pd.set_option("display.max_rows", None)
+        pd.set_option("display.width", None)
+        pd.set_option("display.max_colwidth", None)
+        print(df_radex)
     else:
         print("\nNo RADEX entries found for the specified species.")
 
 if __name__ == "__main__":
-    main()   
+    main()
