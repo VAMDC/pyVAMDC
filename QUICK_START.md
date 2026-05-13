@@ -41,6 +41,34 @@ vamdc get lines \
   --format csv --output lines.csv
 ```
 
+### Get RADEX Collision Data
+```bash
+# Fetch collision data for a target-collider pair (InChIKeys)
+vamdc get radex \
+  --target=UGFAIRIUMAVXCW-UHFFFAOYSA-N \
+  --collider=YXFVVABEGXRONW-UHFFFAOYSA-N
+
+# Save zip archives to a custom directory
+vamdc get radex \
+  --target=UGFAIRIUMAVXCW-UHFFFAOYSA-N \
+  --collider=YXFVVABEGXRONW-UHFFFAOYSA-N \
+  --output ./my_radex_files
+
+# Filter by collision and spectroscopic databases
+vamdc get radex \
+  --target=UGFAIRIUMAVXCW-UHFFFAOYSA-N \
+  --collision-db=ivo://vamdc/basecol \
+  --spectro-db=ivo://vamdc/cdms
+
+# Query with only a target (no collider filter)
+vamdc get radex --target=UGFAIRIUMAVXCW-UHFFFAOYSA-N --format csv
+```
+
+Each result is saved as a **zip archive** containing:
+- `{name}.radex` — RADEX-format collision rates file
+- Collision cross-section file (XSAMS)
+- Spectroscopic data file (XSAMS)
+
 ### Manage Cache
 ```bash
 vamdc cache status    # View cache info
@@ -81,6 +109,7 @@ vamdc get --help                # Show get commands
 vamdc get nodes --help          # Show nodes command options
 vamdc get species --help        # Show species command options
 vamdc get lines --help          # Show lines command options
+vamdc get radex --help          # Show radex command options
 vamdc cache --help              # Show cache commands
 ```
 
@@ -90,7 +119,8 @@ vamdc cache --help              # Show cache commands
 |---------|---------|
 | `vamdc get nodes` | table, json, csv |
 | `vamdc get species` | table, json, csv, parquet, excel |
-| `vamdc get lines` | xsams, json, csv, table |
+| `vamdc get lines` | xsams, slap2, json, csv, table, parquet |
+| `vamdc get radex` | table, json, csv (summary); zip archives saved to `--output` dir |
 
 ## Tips
 
@@ -98,6 +128,7 @@ vamdc cache --help              # Show cache commands
 - **Verbose mode**: Use `-v` flag for detailed logging: `vamdc -v get nodes`
 - **Save to file**: Use `-o` flag to save: `vamdc get species -o data.csv`
 - **Force refresh**: Use `--refresh` to ignore cache: `vamdc get nodes --refresh`
+- **RADEX output**: `vamdc get radex` always downloads zip archives; use `--output` to choose the directory (default: `./QueryResults/RADEX`)
 - **Custom cache location**: Use `--cache-dir`: `vamdc --cache-dir /tmp/cache get species`
 
 ## Troubleshooting

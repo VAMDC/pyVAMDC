@@ -1,6 +1,6 @@
 ---
 name: vamdc
-description: Query atomic and molecular spectroscopic data using the pyVAMDC command-line tool. Provides access to VAMDC (Virtual Atomic and Molecular Data Centre) infrastructure for retrieving spectral lines, species metadata, and node information. Use this skill to fetch spectroscopic data from various databases, discover available species, or count results before downloading.
+description: Query atomic and molecular spectroscopic data using the pyVAMDC command-line tool. Provides access to VAMDC (Virtual Atomic and Molecular Data Centre) infrastructure for retrieving spectral lines, species metadata, node information, and RADEX molecular collision data. Use this skill to fetch spectroscopic data from various databases, discover available species, count results before downloading, or obtain collision rate files for radiative transfer modelling.
 ---
 
 # VAMDC - Spectroscopic Data Queries
@@ -205,6 +205,11 @@ vamdc convert energy 100 --from-unit=gigahertz --to-unit=angstrom
 - `json`: JSON array
 - `parquet`: Columnar binary format (memory-efficient for large datasets)
 
+**RADEX collision data (`vamdc get radex`):**
+- Downloads zip archives to the `--output` directory (default: `./QueryResults/RADEX`)
+- Each zip contains: `{name}.radex` (collision rates), a collision XSAMS file, and a spectroscopic XSAMS file
+- Summary of retrieved entries is printed as `table` (default), `csv`, or `json`
+
 ## Identifying Nodes and Species
 
 ### Node Matching
@@ -313,6 +318,7 @@ result = subprocess.run(
 vamdc --help
 vamdc get --help
 vamdc get lines --help
+vamdc get radex --help
 vamdc count --help
 ```
 
@@ -371,3 +377,86 @@ done < species_list.csv
 
 - Use `--lambda-min` and `--lambda-max` (in Ångströms) to restrict queries
 - Example: UV region (100–4000 Å), optical (3000–10000 Å), IR (10000–100000 Å)
+
+### 4. Query RADEX Collision Data
+
+**Background:** RADEX files contain molecular collision rate coefficients needed for non-LTE radiative transfer modelling. The `vamdc get radex` command retrieves them from the RADEX API as zip archives, one per target-collider pair.
+
+**Workflow:** (1) Find InChIKeys for target and collider species, (2) query RADEX, (3) use the downloaded `.radex` files in your radiative transfer code.
+
+**Step 1: Find InChIKeys for target and collider**
+
+```bash
+vamdc --quiet get species --filter-by "name:CO" --format csv --output co_species.csv 2>errors.log
+vamdc --quiet get species --filter-by "name:H2" --format csv --output h2_species.csv 2>errors.log
+# Extract InChIKey column from output files
+```
+
+**Step 2: Download RADEX collision data**
+
+```bash
+# Basic: one target, one collider
+vamdc --quiet get radex \
+  --target=UGFAIRIUMAVXCW-UHFFFAOYSA-N \
+  --collider=YXFVVABEGXRONW-UHFFFAOYSA-N \
+  --output ./radex_co_h2 \
+  2>errors.log
+
+# Target only (no collider filter) — returns all colliders for that target
+vamdc --quiet get radex \
+  --target=UGFAIRIUMAVXCW-UHFFFAOYSA-N \
+  --output ./radex_co \
+  2>errors.log
+
+# Multiple targets or colliders
+vamdc --quiet get radex \
+  --target=UGFAIRIUMAVXCW-UHFFFAOYSA-N \
+  --target=UFHFLCQGNIYNRP-UHFFFAOYSA-N \
+  --collider=YXFVVABEGXRONW-UHFFFAOYSA-N \
+  --output ./radex_multi \
+  2>errors.log
+
+# Filter by specific collision and spectroscopic databases
+vamdc --quiet get radex \
+  --target=UGFAIRIUMAVXCW-UHFFFAOYSA-N \
+  --collision-db=ivo://vamdc/basecol \
+  --spectro-db=ivo://vamdc/cdms \
+  --output ./radex_basecol \
+  2>errors.log
+
+# Filter by DOI
+vamdc --quiet get radex \
+  --target=UGFAIRIUMAVXCW-UHFFFAOYSA-N \
+  --doi=10.1234/example \
+  --output ./radex_doi \
+  2>errors.log
+
+# Get a summary as CSV instead of the default table
+vamdc --quiet get radex \
+  --target=UGFAIRIUMAVXCW-UHFFFAOYSA-N \
+  --format csv \
+  --output ./radex_files \
+  2>errors.log
+```
+
+**Step 3: Use the downloaded files**
+
+Each zip archive in the output directory contains:
+- `{name}.radex` — RADEX-format collision rates file, ready for use with the RADEX radiative transfer code
+- Collision XSAMS file — original collision cross-section data from BASECOL or another collision node
+- Spectroscopic XSAMS file — original spectroscopic data from CDMS, JPL, or another spectro node
+
+The command prints a summary table with columns: `inchikeyTarget`, `inchikeyCollider`, `symmetryTarget`, `symmetryCollider`, `doi`, `zipFile`.
+
+**Options reference:**
+
+| Option | Description |
+|--------|-------------|
+| `--target` | InChIKey of target molecule (multiple allowed) |
+| `--collider` | InChIKey of collider molecule (multiple allowed) |
+| `--collision-db` | IVO identifier of collision database to filter by |
+| `--spectro-db` | IVO identifier of spectroscopic database to filter by |
+| `--doi` | DOI to filter results by |
+| `--limit` | Max results per API call |
+| `--output / -o` | Directory for downloaded zip files (default: `./QueryResults/RADEX`) |
+| `--format / -f` | Summary format: `table` (default), `csv`, `json` |

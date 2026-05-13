@@ -1,4 +1,6 @@
-from pyVAMDC.radex.logger import logger
+from pyVAMDC.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 import pandas as pd
 import requests
@@ -121,7 +123,8 @@ class Radex:
         db_df_collision: Optional[pd.DataFrame] = None,
         db_df_spectro: Optional[pd.DataFrame] = None,
         doi_df: Optional[pd.DataFrame] = None,
-        limit: Optional[int] = None
+        limit: Optional[int] = None,
+        output_dir: str = "./QueryResults/RADEX"
     ) -> pd.DataFrame:
         """
         Get RADEX entries for all target-collider species combinations (cartesian product).
@@ -142,6 +145,7 @@ class Radex:
                 - zipFile: local path to the zip archive containing the RADEX file
                   ({base}.radex) and the original collision/spectro files
                   with their server-side filenames
+            output_dir (str): Directory where zip files will be saved (default: "./QueryResults/RADEX")
         """
         if (target_df is None or target_df.empty) and (collider_df is None or collider_df.empty):
             logger.warning("No species provided, returning all entries")
@@ -189,12 +193,12 @@ class Radex:
 
         keep = ["inchikeyTarget", "inchikeyCollider", "symmetryTarget", "symmetryCollider",
                 "fileName", "radexFileUrl", "collisionFileUrl", "spectroFileUrl", "doi"]
-        return self._downloadRadexFiles(df_raw[[c for c in keep if c in df_raw.columns]].copy())
+        return self._downloadRadexFiles(df_raw[[c for c in keep if c in df_raw.columns]].copy(), output_dir=output_dir)
 
     def _downloadRadexFiles(
         self,
         df_radex: pd.DataFrame,
-        output_dir: str = "./RADEX"
+        output_dir: str = "./QueryResults/RADEX"
     ) -> pd.DataFrame:
         """
         Download files from URLs in df_radex, group them into a zip per entry,
@@ -207,7 +211,7 @@ class Radex:
 
         Parameters:
             df_radex (pd.DataFrame): DataFrame with file URL columns and fileName
-            output_dir (str): Directory where zip files will be saved (default: "./RADEX")
+            output_dir (str): Directory where zip files will be saved (default: "./QueryResults/RADEX")
 
         Returns:
             pd.DataFrame: Same structure with URL columns and fileName replaced by zipFile path

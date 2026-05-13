@@ -12,7 +12,7 @@ from pathlib import Path
 import duckdb
 import pyVAMDC.spectral.species as species
 import pyVAMDC.spectral.vamdcQuery as vamdcQuery
-from pyVAMDC.spectral.logging_config import get_logger
+from pyVAMDC.logging_config import get_logger
 from pyVAMDC.spectral.energyConverter import electromagnetic_conversion
 
 LOGGER = get_logger(__name__)

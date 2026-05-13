@@ -19,7 +19,8 @@ try:
     from spectral import filters as filters_module
     from spectral.energyConverter import electromagnetic_conversion, get_conversion_factors
     from spectral.slap import create_slap2_votables_from_species, create_slap2_votables_from_lines
-    from spectral.logging_config import set_log_level, get_log_level, LogLevel, configure_python_logging
+    from logging_config import set_log_level, get_log_level, LogLevel, configure_python_logging
+    from radex.radex import Radex
 except ImportError:
     # Fall back to absolute imports (when run as console script)
     from pyVAMDC.spectral import species as species_module
@@ -27,7 +28,8 @@ except ImportError:
     from pyVAMDC.spectral import filters as filters_module
     from pyVAMDC.spectral.energyConverter import electromagnetic_conversion, get_conversion_factors
     from pyVAMDC.spectral.slap import create_slap2_votables_from_species, create_slap2_votables_from_lines
-    from pyVAMDC.spectral.logging_config import set_log_level, get_log_level, LogLevel, configure_python_logging
+    from pyVAMDC.logging_config import set_log_level, get_log_level, LogLevel, configure_python_logging
+    from pyVAMDC.radex.radex import Radex
 
 # Default logging configuration (will be reconfigured based on CLI flags)
 logger = logging.getLogger(__name__)
@@ -802,6 +804,105 @@ def lines(ctx: click.Context, inchikey: tuple, node: tuple, lambda_min: float,
                 with open(output, 'w') as f:
                     f.write(output_content)
             click.echo(f"Lines saved to {output}")
+        else:
+            click.echo(output_content)
+
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        if ctx.obj.get('log_level', LogLevel.NORMAL) == LogLevel.DEBUG:
+            import traceback
+            traceback.print_exc()
+        sys.exit(1)
+
+
+@get.command(name='radex')
+@click.option('--target', multiple=True,
+              help='InChIKey of the target species (can be specified multiple times)')
+@click.option('--collider', multiple=True,
+              help='InChIKey of the collider species (can be specified multiple times)')
+@click.option('--collision-db', multiple=True,
+              help='IVO identifier of the collision database to filter by (can be specified multiple times)')
+@click.option('--spectro-db', multiple=True,
+              help='IVO identifier of the spectroscopic database to filter by (can be specified multiple times)')
+@click.option('--doi', type=str, default=None,
+              help='DOI to filter results by')
+@click.option('--limit', type=int, default=None,
+              help='Maximum number of results per API call')
+@click.option('--output', '-o', type=click.Path(), default='./QueryResults/RADEX',
+              help='Output directory for downloaded zip files (default: ./QueryResults/RADEX)')
+@click.option('--format', '-f', type=click.Choice(['table', 'csv', 'json']),
+              default='table', help='Output format for the results summary')
+@click.pass_context
+def radex_cmd(ctx: click.Context, target: tuple, collider: tuple, collision_db: tuple,
+              spectro_db: tuple, doi: Optional[str], limit: Optional[int],
+              output: str, format: str):
+    """Get RADEX collision data for target-collider species combinations.
+
+    Downloads zip archives containing RADEX files, collision files, and spectroscopic
+    files for each matching target-collider pair from the RADEX API.
+
+    At least one of --target or --collider must be specified.
+
+    Example:
+        vamdc get radex --target=UGFAIRIUMAVXCW-UHFFFAOYSA-N --collider=YXFVVABEGXRONW-UHFFFAOYSA-N
+        vamdc get radex --target=UGFAIRIUMAVXCW-UHFFFAOYSA-N --output ./my_radex_files
+        vamdc get radex --target=UGFAIRIUMAVXCW-UHFFFAOYSA-N --collider=YXFVVABEGXRONW-UHFFFAOYSA-N \\
+                        --collision-db=ivo://vamdc/basecol --spectro-db=ivo://vamdc/cdms
+        vamdc get radex --target=UGFAIRIUMAVXCW-UHFFFAOYSA-N --doi=10.1234/example --format csv
+    """
+    try:
+        if not target and not collider:
+            click.echo("Error: At least one of --target or --collider must be specified.", err=True)
+            sys.exit(1)
+
+        # Build target DataFrame
+        target_df = pd.DataFrame({'InChIKey': list(target)}) if target else pd.DataFrame()
+        collider_df = pd.DataFrame({'InChIKey': list(collider)}) if collider else pd.DataFrame()
+
+        # Build optional filter DataFrames
+        db_df_collision = (
+            pd.DataFrame({'ivoIdentifier': list(collision_db)}) if collision_db else None
+        )
+        db_df_spectro = (
+            pd.DataFrame({'ivoIdentifier': list(spectro_db)}) if spectro_db else None
+        )
+        doi_df = pd.DataFrame({'doi': [doi]}) if doi else None
+
+        click.echo("Querying RADEX collision data...", err=True)
+        if target:
+            click.echo(f"Target species: {', '.join(target)}", err=True)
+        if collider:
+            click.echo(f"Collider species: {', '.join(collider)}", err=True)
+        if collision_db:
+            click.echo(f"Collision DB filter: {', '.join(collision_db)}", err=True)
+        if spectro_db:
+            click.echo(f"Spectro DB filter: {', '.join(spectro_db)}", err=True)
+        if doi:
+            click.echo(f"DOI filter: {doi}", err=True)
+
+        radex_client = Radex()
+        result_df = radex_client.getRadex(
+            target_df=target_df,
+            collider_df=collider_df,
+            db_df_collision=db_df_collision,
+            db_df_spectro=db_df_spectro,
+            doi_df=doi_df,
+            limit=limit,
+            output_dir=output,
+        )
+
+        if result_df.empty:
+            click.echo("No RADEX entries found for the specified criteria.", err=True)
+            sys.exit(0)
+
+        click.echo(f"\nRetrieved {len(result_df)} RADEX entry/entries.", err=True)
+
+        output_content = format_output(result_df, format)
+
+        if format == 'csv':
+            result_df.to_csv(sys.stdout, index=False)
+        elif format == 'json':
+            result_df.to_json(sys.stdout, orient='records', indent=2)
         else:
             click.echo(output_content)
 

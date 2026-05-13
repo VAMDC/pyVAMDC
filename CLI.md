@@ -764,6 +764,87 @@ This command performs HEAD requests to retrieve VAMDC count headers without down
 - Truncation status
 - Estimated data sizes
 
+### `vamdc get radex`
+
+Download RADEX collision data files for molecular radiative transfer modelling. Queries the RADEX API for target–collider species pairs and downloads results as zip archives, each containing a `.radex` file (collision rates), a collision XSAMS file, and a spectroscopic XSAMS file.
+
+**Options:**
+- `--target TEXT`: InChIKey of the target molecule (**can be specified multiple times**)
+- `--collider TEXT`: InChIKey of the collider molecule (**can be specified multiple times**)
+- `--collision-db TEXT`: IVO identifier of the collision database to filter by (optional)
+- `--spectro-db TEXT`: IVO identifier of the spectroscopic database to filter by (optional)
+- `--doi TEXT`: DOI to filter results by (optional)
+- `--limit INT`: Maximum number of results per API call (optional)
+- `-o, --output PATH`: Directory where zip files are saved (default: `./QueryResults/RADEX`)
+- `-f, --format [table|csv|json]`: Output format for the results summary (default: `table`)
+
+**Output:**
+
+Zip archives are written to the `--output` directory (default: `./QueryResults/RADEX`). Each zip contains:
+- `{name}.radex` — collision rate file, ready for use with the RADEX radiative transfer code
+- A collision XSAMS file from the collision database (e.g. BASECOL)
+- A spectroscopic XSAMS file from the spectroscopic database (e.g. CDMS, JPL)
+
+A summary table is printed with columns: `inchikeyTarget`, `inchikeyCollider`, `symmetryTarget`, `symmetryCollider`, `doi`, `zipFile`.
+
+**Examples:**
+
+#### Basic: one target, one collider
+```bash
+vamdc --quiet get radex \
+  --target=UGFAIRIUMAVXCW-UHFFFAOYSA-N \
+  --collider=YXFVVABEGXRONW-UHFFFAOYSA-N \
+  2>errors.log
+```
+
+#### Target only — returns all colliders for that target
+```bash
+vamdc --quiet get radex \
+  --target=UGFAIRIUMAVXCW-UHFFFAOYSA-N \
+  2>errors.log
+```
+
+#### Multiple targets or colliders
+```bash
+vamdc --quiet get radex \
+  --target=UGFAIRIUMAVXCW-UHFFFAOYSA-N \
+  --target=UFHFLCQGNIYNRP-UHFFFAOYSA-N \
+  --collider=YXFVVABEGXRONW-UHFFFAOYSA-N \
+  2>errors.log
+```
+
+#### Filter by collision and spectroscopic databases
+```bash
+vamdc --quiet get radex \
+  --target=UGFAIRIUMAVXCW-UHFFFAOYSA-N \
+  --collision-db=ivo://vamdc/basecol \
+  --spectro-db=ivo://vamdc/cdms \
+  2>errors.log
+```
+
+#### Filter by DOI
+```bash
+vamdc --quiet get radex \
+  --target=UGFAIRIUMAVXCW-UHFFFAOYSA-N \
+  --doi=10.1234/example \
+  2>errors.log
+```
+
+#### Custom output directory and CSV summary
+```bash
+vamdc --quiet get radex \
+  --target=UGFAIRIUMAVXCW-UHFFFAOYSA-N \
+  --output ./my_radex_files \
+  --format csv \
+  2>errors.log
+```
+
+**Sample output:**
+```
+inchikeyTarget             inchikeyCollider           symmetryTarget  symmetryCollider  doi                zipFile
+UGFAIRIUMAVXCW-UHFFFAOYSA-N  YXFVVABEGXRONW-UHFFFAOYSA-N  1               1                 10.1234/example  QueryResults/RADEX/co-h2_para.zip
+```
+
 ### `vamdc cache status`
 
 Show cache status and metadata, including XSAMS files.
@@ -1883,7 +1964,7 @@ The logging system can be configured via:
 All errors in the codebase follow this pattern:
 
 ```python
-from pyVAMDC.spectral.logging_config import get_logger
+from pyVAMDC.logging_config import get_logger
 
 LOGGER = get_logger(__name__)
 
@@ -1917,7 +1998,7 @@ except SpecificException as e:
 When adding new functions that might generate errors:
 
 ```python
-from pyVAMDC.spectral.logging_config import get_logger
+from pyVAMDC.logging_config import get_logger
 
 LOGGER = get_logger(__name__)
 

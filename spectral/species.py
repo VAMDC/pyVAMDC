@@ -13,7 +13,7 @@ from rdkit.Chem import Draw
 
 # Import the filters module
 from pyVAMDC.spectral import filters
-from pyVAMDC.spectral.logging_config import get_logger
+from pyVAMDC.logging_config import get_logger
 
 LOGGER = get_logger(__name__)
 class speciesByAstronomicalDomains(Enum):

@@ -9,7 +9,7 @@ import re
 import numpy as np
 import time
 from typing import Tuple, Optional
-from pyVAMDC.spectral.logging_config import get_logger
+from pyVAMDC.logging_config import get_logger
 from pyVAMDC.spectral.energyConverter import electromagnetic_conversion
 
 LOGGER = get_logger(__name__)

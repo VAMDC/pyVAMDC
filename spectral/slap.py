@@ -18,7 +18,7 @@ Usage:
 Reference: SLAP2 specification - Simple Line Access Protocol v2.0
 """
 
-import logging
+from pyVAMDC.logging_config import get_logger
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Tuple
@@ -32,7 +32,7 @@ from lxml import etree
 from pyVAMDC.spectral.species import getSpeciesWithRestrictions
 from pyVAMDC.spectral.energyConverter import electromagnetic_conversion
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 # SLAP2 VOTable XML Namespaces
