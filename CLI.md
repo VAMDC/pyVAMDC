@@ -35,7 +35,8 @@ vamdc
 ├── get          # Retrieve data from VAMDC
 │   ├── nodes    # List available data nodes
 │   ├── species  # List chemical species
-│   └── lines    # Query spectral lines (supports multiple species/nodes)
+│   ├── lines    # Query spectral lines (supports multiple species/nodes)
+│   └── radex    # Download RADEX collision data files (target–collider pairs)
 ├── count        # Inspect metadata without downloading
 │   └── lines    # Get line counts and metadata (supports multiple species/nodes)
 ├── convert      # Perform unit conversions
@@ -54,7 +55,8 @@ vamdc
 ✨ **Parallel processing**: Leverages multiprocessing for faster queries  
 ✨ **Enhanced metadata**: Added node and species_type columns to output  
 ✨ **Flexible truncation handling**: Control query splitting behavior  
-✨ **Unit conversion**: Convert between energy, frequency, and wavelength units
+✨ **Unit conversion**: Convert between energy, frequency, and wavelength units  
+✨ **RADEX collision data**: Download collision rate files for molecular radiative transfer modelling
 
 ## Global Options
 

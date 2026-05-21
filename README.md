@@ -16,7 +16,7 @@ uvx --from . vamdc count lines --inchikey=UFHFLCQGNIYNRP-UHFFFAOYSA-N --node=val
 uvx --from . vamdc get lines --inchikey=UGFAIRIUMAVXCW-UHFFFAOYSA-N --lambda-min=3000 --lambda-max=5000
 uvx --from . vamdc get radex --target=UGFAIRIUMAVXCW-UHFFFAOYSA-N --collider=YXFVVABEGXRONW-UHFFFAOYSA-N
 ```
-Cached CSV files are stored under `~/.cache/vamdc` by default; use `--cache-dir` or `--force-refresh` when you need to override the defaults.
+Cached CSV files are stored under `~/.cache/vamdc` by default; set the `VAMDC_CACHE_DIR` environment variable to override the location, or use `--refresh` on any `get` sub-command to force a fresh fetch.
 
 ***RADEX collision data***
 The `vamdc get radex` command queries the RADEX API to retrieve molecular collision data for target-collider species pairs. Results are downloaded as zip archives, each containing a `.radex` file, a collision cross-section file (XSAMS), and a spectroscopic data file (XSAMS). The command accepts InChIKeys for both target and collider species, and optionally filters by collision database, spectroscopic database, or DOI.

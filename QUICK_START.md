@@ -118,7 +118,7 @@ vamdc cache --help              # Show cache commands
 | Command | Formats |
 |---------|---------|
 | `vamdc get nodes` | table, json, csv |
-| `vamdc get species` | table, json, csv, parquet, excel |
+| `vamdc get species` | table, json, csv, excel |
 | `vamdc get lines` | xsams, slap2, json, csv, table, parquet |
 | `vamdc get radex` | table, json, csv (summary); zip archives saved to `--output` dir |
 
@@ -129,7 +129,7 @@ vamdc cache --help              # Show cache commands
 - **Save to file**: Use `-o` flag to save: `vamdc get species -o data.csv`
 - **Force refresh**: Use `--refresh` to ignore cache: `vamdc get nodes --refresh`
 - **RADEX output**: `vamdc get radex` always downloads zip archives; use `--output` to choose the directory (default: `./QueryResults/RADEX`)
-- **Custom cache location**: Use `--cache-dir`: `vamdc --cache-dir /tmp/cache get species`
+- **Custom cache location**: Set the `VAMDC_CACHE_DIR` environment variable: `VAMDC_CACHE_DIR=/tmp/cache vamdc get species`
 
 ## Troubleshooting
 
