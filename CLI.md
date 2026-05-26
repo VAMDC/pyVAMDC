@@ -778,7 +778,7 @@ Download RADEX collision data files for molecular radiative transfer modelling. 
 - `--doi TEXT`: DOI to filter results by (optional)
 - `--limit INT`: Maximum number of results per API call (optional)
 - `-o, --output PATH`: Directory where zip files are saved (default: `./QueryResults/RADEX`)
-- `-f, --format [table|csv|json]`: Output format for the results summary (default: `table`)
+- `-f, --summary-format [table|csv|json]`: Display format for the results summary printed to stdout (default: `table`). Zip archives are always downloaded regardless of this option.
 
 **Output:**
 
@@ -837,7 +837,7 @@ vamdc --quiet get radex \
 vamdc --quiet get radex \
   --target=UGFAIRIUMAVXCW-UHFFFAOYSA-N \
   --output ./my_radex_files \
-  --format csv \
+  --summary-format csv \
   2>errors.log
 ```
 

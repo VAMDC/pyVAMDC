@@ -61,7 +61,7 @@ vamdc get radex \
   --spectro-db=ivo://vamdc/cdms
 
 # Query with only a target (no collider filter)
-vamdc get radex --target=UGFAIRIUMAVXCW-UHFFFAOYSA-N --format csv
+vamdc get radex --target=UGFAIRIUMAVXCW-UHFFFAOYSA-N --summary-format csv
 ```
 
 Each result is saved as a **zip archive** containing:
@@ -120,7 +120,7 @@ vamdc cache --help              # Show cache commands
 | `vamdc get nodes` | table, json, csv |
 | `vamdc get species` | table, json, csv, excel |
 | `vamdc get lines` | xsams, slap2, json, csv, table, parquet |
-| `vamdc get radex` | table, json, csv (summary); zip archives saved to `--output` dir |
+| `vamdc get radex` | `--summary-format`: table, json, csv (stdout summary only); zip archives always saved to `--output` dir |
 
 ## Tips
 

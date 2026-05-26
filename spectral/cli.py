@@ -830,12 +830,12 @@ def lines(ctx: click.Context, inchikey: tuple, node: tuple, lambda_min: float,
               help='Maximum number of results per API call')
 @click.option('--output', '-o', type=click.Path(), default='./QueryResults/RADEX',
               help='Output directory for downloaded zip files (default: ./QueryResults/RADEX)')
-@click.option('--format', '-f', type=click.Choice(['table', 'csv', 'json']),
-              default='table', help='Output format for the results summary')
+@click.option('--summary-format', '-f', type=click.Choice(['table', 'csv', 'json']),
+              default='table', help='Display format for the results summary (zip files are always downloaded regardless of this option)')
 @click.pass_context
 def radex_cmd(ctx: click.Context, target: tuple, collider: tuple, collision_db: tuple,
               spectro_db: tuple, doi: Optional[str], limit: Optional[int],
-              output: str, format: str):
+              output: str, summary_format: str):
     """Get RADEX collision data for target-collider species combinations.
 
     Downloads zip archives containing RADEX files, collision files, and spectroscopic
@@ -848,7 +848,7 @@ def radex_cmd(ctx: click.Context, target: tuple, collider: tuple, collision_db: 
         vamdc get radex --target=UGFAIRIUMAVXCW-UHFFFAOYSA-N --output ./my_radex_files
         vamdc get radex --target=UGFAIRIUMAVXCW-UHFFFAOYSA-N --collider=YXFVVABEGXRONW-UHFFFAOYSA-N \\
                         --collision-db=ivo://vamdc/basecol --spectro-db=ivo://vamdc/cdms
-        vamdc get radex --target=UGFAIRIUMAVXCW-UHFFFAOYSA-N --doi=10.1234/example --format csv
+        vamdc get radex --target=UGFAIRIUMAVXCW-UHFFFAOYSA-N --doi=10.1234/example --summary-format csv
     """
     try:
         if not target and not collider:
@@ -897,11 +897,11 @@ def radex_cmd(ctx: click.Context, target: tuple, collider: tuple, collision_db: 
 
         click.echo(f"\nRetrieved {len(result_df)} RADEX entry/entries.", err=True)
 
-        output_content = format_output(result_df, format)
+        output_content = format_output(result_df, summary_format)
 
-        if format == 'csv':
+        if summary_format == 'csv':
             result_df.to_csv(sys.stdout, index=False)
-        elif format == 'json':
+        elif summary_format == 'json':
             result_df.to_json(sys.stdout, orient='records', indent=2)
         else:
             click.echo(output_content)
