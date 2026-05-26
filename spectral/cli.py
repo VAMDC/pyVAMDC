@@ -20,7 +20,7 @@ try:
     from spectral.energyConverter import electromagnetic_conversion, get_conversion_factors
     from spectral.slap import create_slap2_votables_from_species, create_slap2_votables_from_lines
     from logging_config import set_log_level, get_log_level, LogLevel, configure_python_logging
-    from radex.radex import Radex
+    from radex.radex import getRadex as radex_getRadex
 except ImportError:
     # Fall back to absolute imports (when run as console script)
     from pyVAMDC.spectral import species as species_module
@@ -29,7 +29,7 @@ except ImportError:
     from pyVAMDC.spectral.energyConverter import electromagnetic_conversion, get_conversion_factors
     from pyVAMDC.spectral.slap import create_slap2_votables_from_species, create_slap2_votables_from_lines
     from pyVAMDC.logging_config import set_log_level, get_log_level, LogLevel, configure_python_logging
-    from pyVAMDC.radex.radex import Radex
+    from pyVAMDC.radex.radex import getRadex as radex_getRadex
 
 # Default logging configuration (will be reconfigured based on CLI flags)
 logger = logging.getLogger(__name__)
@@ -880,8 +880,7 @@ def radex_cmd(ctx: click.Context, target: tuple, collider: tuple, collision_db: 
         if doi:
             click.echo(f"DOI filter: {doi}", err=True)
 
-        radex_client = Radex()
-        result_df = radex_client.getRadex(
+        result_df = radex_getRadex(
             target_df=target_df,
             collider_df=collider_df,
             db_df_collision=db_df_collision,
