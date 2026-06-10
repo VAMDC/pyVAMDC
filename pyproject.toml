@@ -64,11 +64,12 @@ Repository = "https://github.com/VAMDC/pyVAMDC.git"
 Issues = "https://github.com/VAMDC/pyVAMDC/issues"
 
 [tool.setuptools]
-packages = ["pyVAMDC", "pyVAMDC.spectral"]
+packages = ["pyVAMDC", "pyVAMDC.spectral", "pyVAMDC.radex"]
 
 [tool.setuptools.package-dir]
 "pyVAMDC" = "."
 "pyVAMDC.spectral" = "spectral"
+"pyVAMDC.radex" = "radex"
 
 [tool.setuptools.package-data]
 "*" = ["xsl/*.xsl"]
