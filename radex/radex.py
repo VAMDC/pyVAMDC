@@ -178,7 +178,8 @@ def getRadex(
         return pd.DataFrame()
 
     keep = ["inchikeyTarget", "inchikeyCollider", "symmetryTarget", "symmetryCollider",
-            "fileName", "radexFileUrl", "collisionFileUrl", "spectroFileUrl", "doi"]
+            "fileName", "radexFileUrl", "collisionFileUrl", "spectroFileUrl", "doi",
+            "process", "quantumNumbers", "levels"]
     return _downloadRadexFiles(df_raw[[c for c in keep if c in df_raw.columns]].copy(), output_dir=output_dir)
 
 
@@ -220,6 +221,25 @@ def _downloadRadexFiles(
         raw = Path(Path(filename).name).stem if filename else "unknown"
         raw = "".join(c for c in raw if c.isalnum() or c in "_-.")
         base = raw[2:] if raw.startswith("M_") else raw
+        # strip trailing _hyp suffix
+        if base.endswith("_hyp"):
+            base = base[:-4]
+
+        # Append process / quantum numbers / number of levels to the zip name.
+        # Each value is sanitized to keep the path-traversal protection below valid.
+        def _clean(v):
+            # pandas stores integers from JSON as floats (26 -> 26.0); show them as ints
+            if isinstance(v, float) and v.is_integer():
+                v = int(v)
+            return "".join(c for c in str(v) if c.isalnum() or c in "_-")
+
+        parts = [base]
+        for col in ("process", "quantumNumbers", "levels"):
+            val = record.get(col)
+            cleaned = _clean(val) if val not in (None, "") and str(val).lower() != "nan" else ""
+            if cleaned:
+                parts.append(cleaned)
+        base = "_".join(parts)
 
         zip_path = (output_path / f"{base}.zip").resolve()
         if not str(zip_path).startswith(str(output_path.resolve())):

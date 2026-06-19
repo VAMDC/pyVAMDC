@@ -1,5 +1,5 @@
 import pandas as pd
-from pyVAMDC.radex.radex import Radex
+from pyVAMDC.radex.radex import getRadex as radex_getRadex
 from pyVAMDC.spectral.species import getSpeciesWithRestrictions
 
 def main():
@@ -19,9 +19,7 @@ def main():
     db_df_collision = pd.DataFrame({"ivoIdentifier": ["ivo://vamdc/basecol2015/vamdc-tap"]})
     db_df_spectro = pd.DataFrame({"ivoIdentifier": ["ivo://vamdc/cdms/vamdc-tap_12.07"]})
 
-    radex = Radex()
-
-    df_radex = radex.getRadex(
+    df_radex = radex_getRadex(
         target_df=df_target,
         collider_df=df_collider,
         db_df_collision=db_df_collision,
