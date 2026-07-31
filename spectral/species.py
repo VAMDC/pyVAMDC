@@ -416,9 +416,16 @@ def _getChemicalInfoFromEnpoint(specificSpeciesEndpoint):
     Returns:
         AllSpeciesDF (dataframe): a Pandas dataframe containing the chemical information obtained while resolving the URL in the specificSpeciesEndpoint variable.
         df_nodes (dataframe):  a Pandas dataframe containing the information regarding the Nodes.
+
+    Raises:
+        ValueError: if the endpoint returns no chemical information at all.
     """
     response = urllib.request.urlopen(specificSpeciesEndpoint)
     data = json.loads(response.read())
+
+    # fail fast instead of letting pd.concat crash with an unclear error further down
+    if not data:
+        raise ValueError(f"No chemical information returned by the Species endpoint: {specificSpeciesEndpoint}")
 
     # wrapping the results into a unique Pandas Dataframe (called AllSpeciesDF)
     dataFrames = []
