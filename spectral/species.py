@@ -471,9 +471,15 @@ def _getChemicalInfoFromEnpoint(specificSpeciesEndpoint):
     Returns:
         AllSpeciesDF (dataframe): a Pandas dataframe containing the chemical information obtained while resolving the URL in the specificSpeciesEndpoint variable.
         df_nodes (dataframe):  a Pandas dataframe containing the information regarding the Nodes.
+        (None, None): if nothing found, is cleaner than getting some Exception from pandas when trying to create a dataframe from an empty json.
     """
     response = urllib.request.urlopen(specificSpeciesEndpoint)
     data = json.loads(response.read())
+
+    # Simply nothing found
+    if not data or len(data.items()) == 0:
+        #print("No chemical information has been found in the Species database.")
+        return None, None
 
     # wrapping the results into a unique Pandas Dataframe (called AllSpeciesDF)
     dataFrames = []
