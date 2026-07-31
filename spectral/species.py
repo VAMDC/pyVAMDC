@@ -1,6 +1,7 @@
 import pandas as pd
 import json
 import urllib.request
+import warnings
 from datetime import datetime
 from io import StringIO
 
@@ -113,9 +114,13 @@ def getSpeciesWithRestrictions(name = None, inchi = None, inchikey = None, ivo_i
                                charge_min = None, charge_max = None, type = None, number_unique_atoms_min = None,
                                number_unique_atoms_max = None, number_total_atoms_min = None, number_total_atoms_max = None,
                                computed_charge_min = None, computed_charge_max = None, computed_weight_min = None, computed_weight_max = None,
-                               tap_endpoint = None):
+                               tap_endpoint = None, text_search = None, structural_formula = None):
     """
     Gets all the chemical species with restrictions defined by the user.
+
+    All filtering is performed locally (client-side) on the dataframe returned by 'getAllSpecies',
+    which means every argument below -including the ones mirroring the remote API's own query
+    parameters- is applied with pandas after the full species dataset has been downloaded.
 
     Args:
         name (str): Filter species where stoichiometricFormula, structuralFormula, or name contains this string. Default None.
@@ -137,6 +142,9 @@ def getSpeciesWithRestrictions(name = None, inchi = None, inchikey = None, ivo_i
         computed_weight_min (float): Minimum computed molecular weight. Default None.
         computed_weight_max (float): Maximum computed molecular weight. Default None.
         tap_endpoint (str): Filter by TAP endpoint of the node. Default None.
+        text_search (str): Filter species where stoichiometricFormula, structuralFormula, name,
+            InChI, or InChIKey contains this string. Default None.
+        structural_formula (str): Filter by exact structural formula match. Default None.
 
     Returns:
         filtered_df (dataframe): Filtered species dataframe.
@@ -146,6 +154,17 @@ def getSpeciesWithRestrictions(name = None, inchi = None, inchikey = None, ivo_i
     species_df, df_nodes = getAllSpecies()
 
     # Apply filters based on provided arguments
+
+    # Filter by text_search (search across the five main identifying columns)
+    if text_search is not None:
+        mask = (
+            species_df['stoichiometricFormula'].astype(str).str.contains(text_search, case=False, na=False) |
+            species_df['structuralFormula'].astype(str).str.contains(text_search, case=False, na=False) |
+            species_df['name'].astype(str).str.contains(text_search, case=False, na=False) |
+            species_df['InChI'].astype(str).str.contains(text_search, case=False, na=False) |
+            species_df['InChIKey'].astype(str).str.contains(text_search, case=False, na=False)
+        )
+        species_df = species_df[mask]
 
     # Filter by name (search in stoichiometricFormula, structuralFormula, and name columns)
     if name is not None:
@@ -172,6 +191,10 @@ def getSpeciesWithRestrictions(name = None, inchi = None, inchikey = None, ivo_i
     # Filter by stoichiometric_formula (exact match)
     if stoichiometric_formula is not None:
         species_df = species_df[species_df['stoichiometricFormula'] == stoichiometric_formula]
+
+    # Filter by structural_formula (exact match)
+    if structural_formula is not None:
+        species_df = species_df[species_df['structuralFormula'] == structural_formula]
 
     # Filter by tap_endpoint
     if tap_endpoint is not None:
@@ -280,119 +303,51 @@ def getAllSpecies():
 
 def getSpeciesWithSearchCriteria(text_search = None, stoichiometric_formula = None, mass_min = None, mass_max = None, charge_min = None, charge_max = None, type = None, ivo_identifier = None, inchikey = None, name = None, structural_formula = None):
     """
-    Gets the chemical informaton available on the Species Database, with restriction defined by the user. Restrictions are defined via the calling arguments
+    Deprecated: use 'getSpeciesWithRestrictions' instead.
+
+    This function used to query the remote Species API with a hand-built (and unencoded) URL.
+    It is now a thin backward-compatible wrapper around 'getSpeciesWithRestrictions', which
+    supports every filter below plus additional ones (inchi, tap_endpoint, computed chemical
+    properties, ...) and performs the equivalent filtering locally.
+
     Args:
-        text_search: str
-            Restricts the results to those having at least a protion of one ot the five fields 'stoichiometric_formula', 'formula',
-            'name', 'InChi', 'inchikey' equal to the user provided value. Default None.
+        text_search, stoichiometric_formula, mass_min, mass_max, charge_min, charge_max, type,
+        ivo_identifier, inchikey, name, structural_formula: see 'getSpeciesWithRestrictions'.
 
-        stoichiometric_formula: str
-            Restricts the results to those having their stoichiometric formula equal to the provided value. Default is None.
-
-        mass_min: Integer
-            Restricts the results to those having their mass number greater than mass_min. Default None.
-            If both mass_min and mass_max are provided, the difference (mass_max - mass_min) is checked to be positive. Otherwise an exception is risen.
-
-        mass_max: Integer
-            Restricts the results to those having their mass number smaller than mass_max. Default None.
-            If both mass_min and mass_max are provided, the difference (mass_max - mass_min) is checked to be positive. Otherwise an exception is risen.
-
-        charge_min: Integer
-            Restricts the results to those having their electric charge greater than charge_min. Default None.
-            If both charge_min nd charge_max are provided, the difference (charge_max - charge_min) is checked to be positive. Otherwise an exception is risen.
-
-        charge_max: Integer
-            Restricts the results to those having their electric charge smaller than charge_max. Default None.
-            If both charge_min nd charge_max are provided, the difference (charge_max - charge_min) is checked to be positive. Otherwise an exception is risen.
-
-        type: str
-            Restricts the results to those having their type equal to the provided value. Default None.
-            Admitted Values are 'molecule', 'atom', 'particle'.
-
-        ivo_identifier: str
-            Restricts the results to the data-Node whose identifier is equal to the provided value. Default None.
-
-        inchikey: str
-            Restricts the results to those having their InchiKey equal to the provided value. Default None.
-
-        name: str
-            Restricts the results to those having their species name equal to the provided value. Default None.
-
-        structural_formula : str
-            Restricts the results to those having their structural formula equal to the provided value. Default None.
-
-     Returns:
-        species_df: dataframe
-            a Pandas dataframe containing the chemical information available on the Species database and satisfying all the defined restrictions.
-            The structure of the dataframe is the following:
-                shortname: a human readable name for the node the current species is extracted from;
-                ivoIdentifier: the unique identifier for the Node the current species is extracted from;
-                InChI: the InChI chemical unique identifier for the current species;
-                InChIKey: the InChIKey derived from the InChI;
-                stoichiometricFormula: the stoichiometric Formula of the current species;
-                massNumber: the mass number for the current species;
-                charge: the electric charge for the current species;
-                speciesType: the type of the current species. Available values are 'molecule', 'atom', 'particle';
-                structuralFormula: the structural formula of the current species;
-                name: a human readable name for the current species;
-                did: an alternative unique identifier for the current species;
-                tapEndpoint: the enpoint of the Data Node from which data related to the current species may be extracted;
-                lastIngestionScriptDate: the last time the species database executed its ingestion script;
-                speciesLastSeenOn: the last time the species database has been fed with information about the current species.
-
-        df_nodes: dataframe
-            a Pandas dataframe containing the information regarding the Nodes.
-            The structure of the dataframe is the following:
-                shortname: a human readable name for the node the current species is extracted from;
-                ivoIdentifier: the unique identifier for the Node the current species is extracted from;
-                InChI: the InChI chemical unique identifier for the current species;
-                InChIKey: the InChIKey derived from the InChI;
-                stoichiometricFormula: the stoichiometric Formula of the current species;
-                massNumber: the mass number for the current species;
-                charge: the electric charge for the current species;
-                speciesType: the type of the current species. Available values are 'molecule', 'atom', 'particle';
-                structuralFormula: the structural formula of the current species;
-                name: a human readable name for the current species;
-                did: an alternative unique identifier for the current species;
-                tapEndpoint: the enpoint of the Data Node from which data related to the current species may be extracted;
-                lastIngestionScriptDate: the last time the species database executed its ingestion script;
-                speciesLastSeenOn: the last time the species database has been fed with information about the current species.
+    Returns:
+        species_df (dataframe): Filtered species dataframe.
+        df_nodes (dataframe): Nodes dataframe.
     """
-    _, urlSpeciesEndpoint = _getEndpoints()
-
-    urlSuffix = "?"
-    urlSuffix = (urlSuffix+"text_search="+text_search+"&") if text_search is not None else urlSuffix
-    urlSuffix = (urlSuffix+"stoichiometric_formula="+stoichiometric_formula+"&") if stoichiometric_formula is not None else urlSuffix
-    urlSuffix = (urlSuffix+"ivo_identifier="+ivo_identifier+"&") if ivo_identifier is not None else urlSuffix
-    urlSuffix = (urlSuffix+"inchikey="+inchikey+"&") if inchikey is not None else urlSuffix
-    urlSuffix = (urlSuffix+"name="+name+"&") if name is not None else urlSuffix
-    urlSuffix = (urlSuffix+"structural_formula="+structural_formula+"&") if structural_formula is not None else urlSuffix
-
-    if type == "molecule" or type == "atom":
-        urlSuffix = urlSuffix + "type="+type + "&"
-
+    warnings.warn(
+        "getSpeciesWithSearchCriteria is deprecated and will be removed in a future release; "
+        "use getSpeciesWithRestrictions instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
 
     # testing the difference mass_max-mass_min to be positive
-    maxMinDifference = mass_max-mass_min if (mass_max is not None and mass_min is not None) else 0
+    maxMinDifference = mass_max - mass_min if (mass_max is not None and mass_min is not None) else 0
     if maxMinDifference < 0:
-        raise Exception("The difference (mass_max - mass_min) must be positive")
+        raise ValueError("The difference (mass_max - mass_min) must be positive")
 
     # testing the difference charge_max-charge_min to be positive
     maxMinDifference = charge_max - charge_min if (charge_max is not None and charge_min is not None) else 0
     if maxMinDifference < 0:
-        raise Exception("The difference (charge_max - charge_min) must be positive")
+        raise ValueError("The difference (charge_max - charge_min) must be positive")
 
-    urlSuffix = (urlSuffix+"mass_max="+str(mass_max)+"&") if mass_max is not None else urlSuffix
-    urlSuffix = (urlSuffix+"mass_min="+str(mass_min)+"&") if mass_min is not None else urlSuffix
-
-    urlSuffix = (urlSuffix+"charge_max="+str(charge_max)+"&") if charge_max is not None else urlSuffix
-    urlSuffix = (urlSuffix+"charge_min="+str(charge_min)+"&") if charge_min is not None else urlSuffix
-
-    fullUrl = urlSpeciesEndpoint + urlSuffix
-
-    species_df , node_df = _getChemicalInfoFromEnpoint(fullUrl)
-
-    return species_df, node_df
+    return getSpeciesWithRestrictions(
+        text_search=text_search,
+        stoichiometric_formula=stoichiometric_formula,
+        mass_min=mass_min,
+        mass_max=mass_max,
+        charge_min=charge_min,
+        charge_max=charge_max,
+        type=type,
+        ivo_identifier=ivo_identifier,
+        inchikey=inchikey,
+        name=name,
+        structural_formula=structural_formula,
+    )
 
 
 
@@ -452,8 +407,8 @@ def getAllSpeciesInExcelFile(filePath):
 
 def _getChemicalInfoFromEnpoint(specificSpeciesEndpoint):
     """
-    This function factors some code common to the 'getSpeciesWithSearchCriteria' and 'getAllSpecies' functions.
-    It is not intended to be called directly, but only by the two functions we have just mentioned.
+    This function factors some code common to the 'getAllSpecies' function (and, historically, other functions
+    resolving the Species endpoint). It is not intended to be called directly.
 
     Arg:
         specificSpeciesEndpoint (str): the url of the endpoint to resolve to extract the chemical information

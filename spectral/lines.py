@@ -227,7 +227,7 @@ def getLinesByTelescopeBand(band:telescopeBands, species_dataframe = None, nodes
 
         species_dataframe : dataframe
             restrict the extraction of the lines to the chemical species contained into the species_dataframe. 
-            The species_dataframe is typically built by functions in the 'species' module (getAllSpecies, getSpeciesWithSearchCriteria), 
+            The species_dataframe is typically built by functions in the 'species' module (getAllSpecies, getSpeciesWithRestrictions), 
             optionally filtered using the functions in the 'filters' module and/or Pandas functionalities. 
             Default None. In this case there is no restriction on the species. 
 
@@ -542,7 +542,7 @@ def getLines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = N
 
         species_dataframe : dataframe
             restrict the extraction of the lines to the chemical species contained into the species_dataframe. 
-            The species_dataframe is typically built by functions in the 'species' module (getAllSpecies, getSpeciesWithSearchCriteria), 
+            The species_dataframe is typically built by functions in the 'species' module (getAllSpecies, getSpeciesWithRestrictions), 
             optionally filtered using the functions in the 'filters' module and/or Pandas functionalities. 
             Default None. In this case there is no restriction on the species. 
 

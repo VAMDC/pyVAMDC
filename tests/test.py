@@ -2,7 +2,7 @@ import pandas as pd
 import random
 import string
 
-from pyVAMDC.spectral.species import getSpeciesWithSearchCriteria, getNodeHavingSpecies
+from pyVAMDC.spectral.species import getSpeciesWithRestrictions, getNodeHavingSpecies
 from pyVAMDC.spectral.lines import getLines
 from pyVAMDC.spectral.energyConverter import convert_dataframe_units
 from pyVAMDC.spectral.filters import filterDataByColumnValues, filterDataHavingColumnContainingStrings, filterDataHavingColumnNotContainingStrings
@@ -40,14 +40,14 @@ def main():
 
     filtered_nodes_df = nodes_df.iloc[row_indices]
 
-    # we get a list of species built using the search API
-    #species_df , _ = species.getSpeciesWithSearchCriteria(name="Fe", charge_min=11, charge_max=11)
+    # we get a list of species built using local filtering
+    #species_df , _ = species.getSpeciesWithRestrictions(name="Fe", charge_min=11, charge_max=11)
 
     #this species is Carbon
-    species_df , _ = getSpeciesWithSearchCriteria(text_search="OKTJSMMVPCPJKN-UHFFFAOYSA-N")
+    species_df , _ = getSpeciesWithRestrictions(text_search="OKTJSMMVPCPJKN-UHFFFAOYSA-N")
 
     #this species is Carbon-Monoxide
-    #species_df , _ = species.getSpeciesWithSearchCriteria(text_search="UGFAIRIUMAVXCW-UHFFFAOYSA-N")
+    #species_df , _ = species.getSpeciesWithRestrictions(text_search="UGFAIRIUMAVXCW-UHFFFAOYSA-N")
     
     
 
