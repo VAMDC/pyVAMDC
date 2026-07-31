@@ -3,6 +3,7 @@ import json
 import urllib.request
 from datetime import datetime
 from io import StringIO
+from urllib.parse import urlencode
 
 import numpy as np
 from enum import Enum
@@ -360,20 +361,25 @@ def getSpeciesWithSearchCriteria(text_search = None, stoichiometric_formula = No
     """
     _, urlSpeciesEndpoint = _getEndpoints()
 
-    urlSuffix = "?"
-    urlSuffix = (urlSuffix+"text_search="+text_search+"&") if text_search is not None else urlSuffix
-    urlSuffix = (urlSuffix+"stoichiometric_formula="+stoichiometric_formula+"&") if stoichiometric_formula is not None else urlSuffix
-    urlSuffix = (urlSuffix+"ivo_identifier="+ivo_identifier+"&") if ivo_identifier is not None else urlSuffix
-    urlSuffix = (urlSuffix+"inchikey="+inchikey+"&") if inchikey is not None else urlSuffix
-    urlSuffix = (urlSuffix+"name="+name+"&") if name is not None else urlSuffix
-    urlSuffix = (urlSuffix+"structural_formula="+structural_formula+"&") if structural_formula is not None else urlSuffix
+    params = {}
+    if text_search is not None:
+        params["text_search"] = text_search
+    if stoichiometric_formula is not None:
+        params["stoichiometric_formula"] = stoichiometric_formula
+    if ivo_identifier is not None:
+        params["ivo_identifier"] = ivo_identifier
+    if inchikey is not None:
+        params["inchikey"] = inchikey
+    if name is not None:
+        params["name"] = name
+    if structural_formula is not None:
+        params["structural_formula"] = structural_formula
 
     if type == "molecule" or type == "atom":
-        urlSuffix = urlSuffix + "type="+type + "&"
-
+        params["type"] = type
 
     # testing the difference mass_max-mass_min to be positive
-    maxMinDifference = mass_max-mass_min if (mass_max is not None and mass_min is not None) else 0
+    maxMinDifference = mass_max - mass_min if (mass_max is not None and mass_min is not None) else 0
     if maxMinDifference < 0:
         raise Exception("The difference (mass_max - mass_min) must be positive")
 
@@ -382,15 +388,19 @@ def getSpeciesWithSearchCriteria(text_search = None, stoichiometric_formula = No
     if maxMinDifference < 0:
         raise Exception("The difference (charge_max - charge_min) must be positive")
 
-    urlSuffix = (urlSuffix+"mass_max="+str(mass_max)+"&") if mass_max is not None else urlSuffix
-    urlSuffix = (urlSuffix+"mass_min="+str(mass_min)+"&") if mass_min is not None else urlSuffix
+    if mass_max is not None:
+        params["mass_max"] = str(mass_max)
+    if mass_min is not None:
+        params["mass_min"] = str(mass_min)
+    if charge_max is not None:
+        params["charge_max"] = str(charge_max)
+    if charge_min is not None:
+        params["charge_min"] = str(charge_min)
 
-    urlSuffix = (urlSuffix+"charge_max="+str(charge_max)+"&") if charge_max is not None else urlSuffix
-    urlSuffix = (urlSuffix+"charge_min="+str(charge_min)+"&") if charge_min is not None else urlSuffix
+    query_string = urlencode(params)
+    fullUrl = f"{urlSpeciesEndpoint}?{query_string}" if query_string else urlSpeciesEndpoint
 
-    fullUrl = urlSpeciesEndpoint + urlSuffix
-
-    species_df , node_df = _getChemicalInfoFromEnpoint(fullUrl)
+    species_df, node_df = _getChemicalInfoFromEnpoint(fullUrl)
 
     return species_df, node_df
 
