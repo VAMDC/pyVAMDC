@@ -9,16 +9,16 @@ description = "A brand-new library to interact with the VAMDC infrastructure"
 authors = [
     {name = "Carlo Maria Zwölf", email = "carlo-maria.zwolf@obspm.fr"},
     {name = "Nicolas Moreau"},
-    {name = "Yaye Awa Ba},
+    {name = "Yaye Awa Ba"},
 ]
 readme = "README.md"
 requires-python = ">=3.11"
-license = {text = "MIT"}
+license = {text = "EUPL-1.2"}
 keywords = ["VAMDC", "spectroscopy", "astrophysics"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: European Union Public Licence 1.2 (EUPL 1.2)",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",

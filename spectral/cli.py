@@ -90,6 +90,17 @@ def save_cache_metadata(cache_file: Path):
 
 def clear_cache():
     """Clear all cached data."""
+    resolved = CACHE_DIR.resolve()
+    home = Path.home().resolve()
+
+    # Refuse to wipe the filesystem root, the user's home directory, or any
+    # other shallow/shared directory a misconfigured VAMDC_CACHE_DIR could point to.
+    if resolved == resolved.anchor or resolved == home or len(resolved.parts) <= 2:
+        raise click.ClickException(
+            f"Refusing to clear '{resolved}': it does not look like a dedicated "
+            "cache directory. Check the VAMDC_CACHE_DIR environment variable."
+        )
+
     if CACHE_DIR.exists():
         shutil.rmtree(CACHE_DIR)
         CACHE_DIR.mkdir(parents=True, exist_ok=True)

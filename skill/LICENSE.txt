@@ -1,0 +1,2 @@
+This code is the intellectual property of Observatoire de Paris.
+It is distributed under the EUPL 1.2 License, cf. https://eupl.eu/1.2/en/

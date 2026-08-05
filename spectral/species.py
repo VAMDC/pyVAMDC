@@ -1,6 +1,7 @@
 import pandas as pd
 import json
 import urllib.request
+import urllib.error
 import warnings
 from datetime import datetime
 from io import StringIO
@@ -17,6 +18,10 @@ from pyVAMDC.spectral import filters
 from pyVAMDC.logging_config import get_logger
 
 LOGGER = get_logger(__name__)
+
+# Requests to the Species-database web services must not hang indefinitely
+REQUEST_TIMEOUT_SECONDS = 60
+
 class speciesByAstronomicalDomains(Enum):
     """
     This class defines some astronomical domain, together with their related species.
@@ -98,8 +103,11 @@ def getNodeHavingSpecies():
     urlNodeEnpoint, _ =_getEndpoints()
 
     # interact with the service endpoint and format the result into json
-    responseNode = urllib.request.urlopen(urlNodeEnpoint)
-    json_list = responseNode.read()
+    try:
+        responseNode = urllib.request.urlopen(urlNodeEnpoint, timeout=REQUEST_TIMEOUT_SECONDS)
+        json_list = responseNode.read()
+    except urllib.error.URLError as e:
+        raise ConnectionError(f"Failed to reach the Node endpoint: {urlNodeEnpoint}") from e
     data = json.loads(json_list)
 
     # convert the json to Pandas dataframe
@@ -420,8 +428,11 @@ def _getChemicalInfoFromEnpoint(specificSpeciesEndpoint):
     Raises:
         ValueError: if the endpoint returns no chemical information at all.
     """
-    response = urllib.request.urlopen(specificSpeciesEndpoint)
-    data = json.loads(response.read())
+    try:
+        response = urllib.request.urlopen(specificSpeciesEndpoint, timeout=REQUEST_TIMEOUT_SECONDS)
+        data = json.loads(response.read())
+    except urllib.error.URLError as e:
+        raise ConnectionError(f"Failed to reach the Species endpoint: {specificSpeciesEndpoint}") from e
 
     # fail fast instead of letting pd.concat crash with an unclear error further down
     if not data:

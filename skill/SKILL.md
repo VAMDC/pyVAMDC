@@ -1,6 +1,9 @@
 ---
 name: vamdc
 description: Query atomic and molecular spectroscopic data using the pyVAMDC command-line tool. Provides access to VAMDC (Virtual Atomic and Molecular Data Centre) infrastructure for retrieving spectral lines, species metadata, node information, and RADEX molecular collision data. Use this skill to fetch spectroscopic data from various databases, discover available species, count results before downloading, or obtain collision rate files for radiative transfer modelling.
+version: 1.0.0
+author: Observatoire de Paris (Carlo Maria Zwölf, Nicolas Moreau, Yaye Awa Ba)
+license: EUPL-1.2
 ---
 
 # VAMDC - Spectroscopic Data Queries

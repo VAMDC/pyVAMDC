@@ -78,6 +78,9 @@ class VamdcQuery:
     DEFAULT_USER_AGENT = 'VAMDC Query store'
     #DEFAULT_USER_AGENT = 'pyVAMDC v0.1'
 
+    # HEAD requests must not hang forever when a node is unresponsive
+    HEAD_REQUEST_TIMEOUT = 60
+
     def __init__(self, nodeEndpoint, lambdaMin, lambdaMax, InchiKey, speciesType, totalListOfQueries, acceptTruncation = False):
       """ This is the constructor of the VAMDCQuery class. 
       The subtlety consists in the fact that this constructor is recursive and takes as argument a list of VAMDCQuery instances already instanciated. 
@@ -136,7 +139,7 @@ class VamdcQuery:
         headers = {'User-Agent': self.USER_AGENT_QUERY_STORE}
          
       try:
-          response = requests.head(self.vamdcCall, headers=headers)
+          response = requests.head(self.vamdcCall, headers=headers, timeout=self.HEAD_REQUEST_TIMEOUT)
           headers_json = {key: value for key, value in response.headers.items()}
           self.counts = {
               key.lower(): value
@@ -176,9 +179,15 @@ class VamdcQuery:
               VamdcQuery(self.nodeEndpoint, newSecondLambdaMin, newSecondLambdaMax, self.InchiKey, self.speciesType, totalListOfQueries, self.acceptTruncation)
                 
 
-      except TimeoutError as e:
+      except (TimeoutError, requests.exceptions.Timeout) as e:
         LOGGER.error(
             f"Query timeout for {self.nodeEndpoint} (wavelength {lambdaMin}-{lambdaMax}, InChIKey {InchiKey})",
+            exception=e,
+            show_traceback=False
+        )
+      except requests.exceptions.RequestException as e:
+        LOGGER.error(
+            f"Network error querying {self.nodeEndpoint} (wavelength {lambdaMin}-{lambdaMax}, InChIKey {InchiKey})",
             exception=e,
             show_traceback=False
         )
