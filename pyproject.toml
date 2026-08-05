@@ -10,6 +10,7 @@ authors = [
     {name = "Carlo Maria Zwölf", email = "carlo-maria.zwolf@obspm.fr"},
     {name = "Nicolas Moreau"},
     {name = "Yaye Awa Ba"},
+    {name = "Thomas Marquart"},
 ]
 readme = "README.md"
 requires-python = ">=3.11"
