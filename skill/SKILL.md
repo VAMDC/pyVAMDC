@@ -2,7 +2,7 @@
 name: vamdc
 description: Query atomic and molecular spectroscopic data using the pyVAMDC command-line tool. Provides access to VAMDC (Virtual Atomic and Molecular Data Centre) infrastructure for retrieving spectral lines, species metadata, node information, and RADEX molecular collision data. Use this skill to fetch spectroscopic data from various databases, discover available species, count results before downloading, or obtain collision rate files for radiative transfer modelling.
 version: 1.0.0
-author: Observatoire de Paris (Carlo Maria Zwölf, Nicolas Moreau, Yaye Awa Ba)
+author: Observatoire de Paris (Carlo Maria Zwölf, Nicolas Moreau, Yaye Awa Ba, Thomas Marquart)
 license: EUPL-1.2
 ---
 
@@ -18,17 +18,14 @@ The pyVAMDC CLI provides command-line access to atomic and molecular spectroscop
 
 ## Setup
 
-Clone and install pyVAMDC:
+Clone pyVAMDC and check out the exact revision you intend to run. When a
+catalog or registry provides a reviewed commit, use that commit in place of
+`REVIEWED_COMMIT_SHA` below:
 
 ```bash
 git clone https://github.com/VAMDC/pyVAMDC.git
 cd pyVAMDC
-```
-
-If you get a network error, try it this way:
-
-```bash
-cd /home/claude && curl -L https://github.com/VAMDC/pyVAMDC/archive/refs/heads/main.zip -o pyVAMDC.zip && unzip -q pyVAMDC.zip && mv pyVAMDC-main pyVAMDC && ls -la pyVAMDC | head -20
+git checkout --detach REVIEWED_COMMIT_SHA
 ```
 
 Get dependencies with
@@ -65,7 +62,9 @@ uvx --from . vamdc --quiet get lines --inchikey=... --node=...  # Wasteful!
 vamdc --quiet get species --filter-by "name:CO" --format csv --output co_species.csv 2>vamdc_errors.log
 ```
 
-The file pyVAMDC/CLI.md contains the full documentation of this command. 
+Use `vamdc --help` and the command-specific `--help` options for the installed
+revision. This skill's bundled `references/parameter_guide.md` provides a
+concise parameter reference.
 
 ## Core Workflows
 
@@ -160,7 +159,12 @@ vamdc --quiet get lines \
 - Smaller files: Compressed binary format vs text CSV
 - Type preservation: Maintains exact data types and precision
 
-**Using --accept-truncation flag:** When querying large datasets or iterating through many species, use the `--accept-truncation` flag to accept partial results without recursive splitting:
+**Choosing partial results explicitly:** By default, pyVAMDC recursively splits
+queries that a node reports as truncated. Preserve that default when complete
+results are required. Only add `--accept-truncation` after the user explicitly
+chooses a potentially incomplete result; never infer that choice from query
+size or batch use. If the node reports truncation, the CLI labels the result
+`PARTIAL RESULT`.
 
 ```bash
 vamdc --quiet get lines \
@@ -354,7 +358,6 @@ while IFS=',' read -r inchikey name formula; do
       --node=cdms \
       --lambda-min=26006000 \
       --lambda-max=26010000 \
-      --accept-truncation \
       --format csv \
       --output "lines_${formula}.csv" \
       2>>batch_errors.log

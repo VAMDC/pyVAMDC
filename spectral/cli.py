@@ -558,7 +558,11 @@ def species_cmd(ctx: click.Context, format: str, output: Optional[str], refresh:
 @click.option('--format', '-f', type=click.Choice(['xsams', 'slap2', 'csv', 'json', 'table', 'parquet']),
               default='table', help='Output format (xsams/slap2: raw XML files, csv/json/table: converted tabular data, parquet: columnar files)')
 @click.option('--output', '-o', type=click.Path(), help='Output file path (tabular) or directory (XSAMS/SLAP2). Default for XSAMS/SLAP2: cache directory')
-@click.option('--accept-truncation', is_flag=True, help='Accept truncated query results without recursive splitting')
+@click.option(
+    '--accept-truncation',
+    is_flag=True,
+    help='Explicitly allow potentially incomplete results without recursive splitting',
+)
 @click.pass_context
 def lines(ctx: click.Context, inchikey: tuple, node: tuple, lambda_min: float,
           lambda_max: float, format: str, output: Optional[str], accept_truncation: bool):
@@ -585,6 +589,13 @@ def lines(ctx: click.Context, inchikey: tuple, node: tuple, lambda_min: float,
 
         click.echo(f"Querying spectral lines...", err=True)
         click.echo(f"Wavelength range: {lambda_min} - {lambda_max} Angstrom", err=True)
+        if accept_truncation:
+            click.secho(
+                "CAUTION: --accept-truncation explicitly permits potentially incomplete results.",
+                fg='yellow',
+                bold=True,
+                err=True,
+            )
 
         # Load species and nodes data
         species_df, nodes_df = load_species_data()
@@ -647,6 +658,18 @@ def lines(ctx: click.Context, inchikey: tuple, node: tuple, lambda_min: float,
                 species_dataframe=filtered_species_df,
                 nodes_dataframe=filtered_nodes_df,
                 acceptTruncation=accept_truncation
+            )
+
+        truncated_queries = sum(
+            metadata.get('truncated') is True for metadata in queries_metadata
+        )
+        if truncated_queries:
+            click.secho(
+                f"PARTIAL RESULT: {truncated_queries} query result(s) were reported as "
+                "truncated by a VAMDC node; the output is incomplete.",
+                fg='red',
+                bold=True,
+                err=True,
             )
 
         # Handle SLAP2 VOTable format output

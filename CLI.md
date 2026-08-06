@@ -339,7 +339,7 @@ Get spectral lines for one or more species from one or more nodes.
 - `--lambda-max FLOAT`: Maximum wavelength in Angstrom (default: 1.0e9)
 - `-f, --format [xsams|slap2|csv|json|table|parquet]`: Output format (default: table)
 - `-o, --output PATH`: Output file path (tabular) or directory (XSAMS/SLAP2/parquet). Default for XSAMS/SLAP2: cache directory
-- `--accept-truncation`: Accept truncated results without recursive splitting
+- `--accept-truncation`: Explicitly allow potentially incomplete results without recursive splitting
 
 **Output format behavior:**
 - **xsams**: Raw XSAMS XML files
@@ -382,8 +382,7 @@ vamdc get lines \
   --inchikey=DONWDOGXJBIXRQ-UHFFFAOYSA-N \
   --node=topbase \
   --lambda-min=1000 \
-  --lambda-max=2000 \
-  --accept-truncation
+  --lambda-max=2000
 ```
 
 #### Multiple species, single node (using short name)
@@ -427,8 +426,7 @@ vamdc get lines \
 # (no --inchikey or --node specified)
 vamdc get lines \
   --lambda-min=1000 \
-  --lambda-max=2000 \
-  --accept-truncation
+  --lambda-max=2000
 ```
 
 #### XSAMS format output
@@ -439,8 +437,7 @@ vamdc get lines \
   --node="http://topbase.obspm.fr/12.07/vamdc/tap//" \
   --lambda-min=1000 \
   --lambda-max=2000 \
-  --format xsams \
-  --accept-truncation
+  --format xsams
 
 # Download XSAMS to custom directory
 vamdc get lines \
@@ -448,8 +445,7 @@ vamdc get lines \
   --format xsams \
   --output /path/to/my/xsams/files \
   --lambda-min=1000 \
-  --lambda-max=2000 \
-  --accept-truncation
+  --lambda-max=2000
 ```
 
 #### CSV output with multiple sources
@@ -460,8 +456,7 @@ vamdc get lines \
   --lambda-min=1000 \
   --lambda-max=2000 \
   --format csv \
-  --output lines.csv \
-  --accept-truncation
+  --output lines.csv
 ```
 
 **Sample output:**
@@ -553,8 +548,7 @@ vamdc get lines \
   --node=topbase \
   --lambda-min=1000 \
   --lambda-max=2000 \
-  --format slap2 \
-  --accept-truncation
+  --format slap2
 
 # Generate SLAP2 VOTables in custom directory
 vamdc get lines \
@@ -563,8 +557,7 @@ vamdc get lines \
   --lambda-min=1000 \
   --lambda-max=2000 \
   --format slap2 \
-  --output /archive/votables/ \
-  --accept-truncation
+  --output /archive/votables/
 
 # Generate SLAP2 VOTables for multiple species/nodes
 vamdc get lines \
@@ -621,7 +614,9 @@ vamdc get lines \
   --lambda-max=90009076900
 ```
 
-With `--accept-truncation`, the query executes as-is even if truncated:
+Only after the user explicitly chooses a potentially incomplete result, add
+`--accept-truncation`. The query then executes as-is even if truncated, and the
+CLI reports `PARTIAL RESULT` when a node reports that truncation occurred:
 
 ```bash
 # Executes in one query, may be truncated
@@ -1214,8 +1209,7 @@ vamdc get lines \
   --lambda-min=1000 \
   --lambda-max=2000 \
   --format csv \
-  --output ca_lines.csv \
-  --accept-truncation
+  --output ca_lines.csv
 ```
 
 ### Explore data availability across all sources
@@ -1279,8 +1273,7 @@ vamdc get lines \
   --node=topbase \
   --lambda-min=1000 \
   --lambda-max=2000 \
-  --format xsams \
-  --accept-truncation
+  --format xsams
 
 # Check XSAMS cache status
 vamdc cache status
@@ -1292,8 +1285,7 @@ vamdc get lines \
   --format xsams \
   --output /archive/2025/calcium/ \
   --lambda-min=1000 \
-  --lambda-max=2000 \
-  --accept-truncation
+  --lambda-max=2000
 
 # Download from multiple nodes
 vamdc get lines \
@@ -1301,8 +1293,7 @@ vamdc get lines \
   --node=topbase \
   --node=chianti \
   --format xsams \
-  --output /archive/2025/calcium/ \
-  --accept-truncation
+  --output /archive/2025/calcium/
 
 # Generate SLAP2 VOTable files in default cache directory
 vamdc get lines \
@@ -1310,8 +1301,7 @@ vamdc get lines \
   --node=topbase \
   --lambda-min=1000 \
   --lambda-max=2000 \
-  --format slap2 \
-  --accept-truncation
+  --format slap2
 
 # Generate SLAP2 VOTable files in custom directory
 vamdc get lines \
@@ -1321,8 +1311,7 @@ vamdc get lines \
   --lambda-min=1000 \
   --lambda-max=2000 \
   --format slap2 \
-  --output /archive/2025/votables/ \
-  --accept-truncation
+  --output /archive/2025/votables/
 
 # Generate SLAP2 VOTables for multiple species from multiple sources
 vamdc get lines \
@@ -1728,7 +1717,8 @@ vamdc get lines --inchikey=INVALID-KEY --node=cdms
    vamdc count lines --inchikey=... --node=... --lambda-min=... --lambda-max=...
    ```
 
-2. **Use `--accept-truncation` for large queries**: Avoid automatic splitting
+2. **Choose `--accept-truncation` only when partial data is acceptable**: This
+   explicit opt-in avoids automatic splitting but may omit available lines.
    ```bash
    vamdc get lines ... --accept-truncation
    ```
@@ -1835,9 +1825,10 @@ vamdc --quiet get lines --inchikey=... --node=... --lambda-min=... --lambda-max=
 ### Query takes too long
 
 1. Use `count lines` to check data volume first
-2. Add `--accept-truncation` to prevent automatic query splitting
-3. Narrow your wavelength range
-4. Query fewer species/nodes simultaneously
+2. Narrow your wavelength range
+3. Query fewer species/nodes simultaneously
+4. If partial data is acceptable, explicitly choose `--accept-truncation` to
+   prevent automatic query splitting
 
 ### XSAMS files filling up disk
 
@@ -1881,8 +1872,7 @@ vamdc get lines \
   --lambda-min=1000 \
   --lambda-max=4000 \
   --format csv \
-  --output uv_lines.csv \
-  --accept-truncation
+  --output uv_lines.csv
 ```
 
 ### Pipeline with filtering
@@ -1899,8 +1889,7 @@ head -3 molecule_inchikeys.txt | while read inchikey; do
     --lambda-min=100000 \
     --lambda-max=200000 \
     --format csv \
-    --output "lines_${inchikey}.csv" \
-    --accept-truncation
+    --output "lines_${inchikey}.csv"
 done
 ```
 
