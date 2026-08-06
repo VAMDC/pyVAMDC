@@ -579,6 +579,8 @@ def getLines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = N
                 - 'vamdcCall': the VAMDC query URL
                 - 'XSAMS_file_path': the path to the downloaded XSAMS file
                 - 'parquet_path': the path to the individual parquet file
+                - 'truncated': whether the node reported the query as truncated
+                - 'accepted_truncation': whether truncation was explicitly accepted
     """
     # Build all HEAD queries (this will show progress bar for query creation)
     listOfAllQueries = _build_and_run_wrappings(lambdaMin, lambdaMax, species_dataframe, nodes_dataframe, acceptTruncation, max_concurrent_per_node)
@@ -621,7 +623,9 @@ def getLines(lambdaMin, lambdaMax, species_dataframe = None, nodes_dataframe = N
             "InchiKey": currentQuery.InchiKey,
             "vamdcCall": currentQuery.vamdcCall,
             "XSAMS_file_path": currentQuery.XSAMSFileName,
-            "parquet_path": str(currentQuery.parquet_path) if currentQuery.parquet_path else None
+            "parquet_path": str(currentQuery.parquet_path) if currentQuery.parquet_path else None,
+            "truncated": currentQuery.truncated,
+            "accepted_truncation": currentQuery.acceptTruncation,
         }
         queries_metadata_list.append(metadata_dict)
     
@@ -761,4 +765,3 @@ def getLinesAsDataFramesByTelescopeBand(band: telescopeBands, species_dataframe=
     return getLinesAsDataFrames(band.value[0], band.value[1], 
                                  species_dataframe=species_dataframe, 
                                  nodes_dataframe=nodes_dataframe)
-

@@ -127,6 +127,35 @@ def test_count_lines_aggregates_counts(runner, isolated_cache, monkeypatch):
     assert "vamdc-count-radiative: 8" in result.output
 
 
+def test_get_lines_marks_explicitly_accepted_truncation_as_partial(
+    runner, isolated_cache, monkeypatch
+):
+    monkeypatch.setattr(
+        cli_mod,
+        "load_species_data",
+        lambda: (_sample_species_df(), _sample_nodes_df()),
+    )
+    received = {}
+
+    def fake_get_lines(**kwargs):
+        received.update(kwargs)
+        return (
+            {},
+            {"http://cdms.example/tap/": pd.DataFrame({"wavelength": [42.0]})},
+            [{"truncated": True, "accepted_truncation": True}],
+        )
+
+    monkeypatch.setattr(cli_mod.lines_module, "getLinesAsDataFrames", fake_get_lines)
+
+    result = runner.invoke(cli_mod.cli, ["get", "lines", "--accept-truncation"])
+
+    assert result.exit_code == 0
+    assert received["acceptTruncation"] is True
+    assert "CAUTION: --accept-truncation" in result.output
+    assert "PARTIAL RESULT:" in result.output
+    assert "the output is incomplete" in result.output
+
+
 # --- get radex ----------------------------------------------------------------
 
 def test_get_radex_requires_target_or_collider(runner):
