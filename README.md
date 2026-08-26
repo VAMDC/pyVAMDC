@@ -1,6 +1,6 @@
 ![pyVAMDC Logo](pyvamdc_logo.png)
 
-**README pyVAMDC version 0.1**
+**README pyVAMDC version 1.0**
 
 pyVAMDC is a Python library to use, extract and manipulate atomic and molecular data extracted from the VAMDC infrastructure. 
 
